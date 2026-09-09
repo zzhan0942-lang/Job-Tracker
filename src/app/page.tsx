@@ -1,69 +1,681 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import AddApplicationModal from "./components/AddApplicationModal";
+import ExpandableProcess from "./components/ExpandableProcess";
+import StatusBadge from "./components/StatusBadge";
+
+type Application = {
+  id: string;
+  company: string;
+  role: string;
+  title: string;
+  status: string;
+  base: string;
+  date: string | null;
+};
+
+type ProgressEvent = {
+  id: string;
+  applicationIds: string[];
+  title: string;
+  company: string;
+  role: string;
+  base: string;
+  event: string;
+  stage: string;
+  result: string;
+  date: string | null;
+  nextDate: string | null;
+  note: string;
+  link: string | null;
+};
+
+const PAGE_SIZE = 10;
 
 export default function Home() {
+  const router = useRouter();
+
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [progress, setProgress] = useState<ProgressEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("全部");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [progressSearch, setProgressSearch] = useState("");
+  const [progressView, setProgressView] = useState<"active" | "all">(
+    "active"
+  );
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [applicationsResponse, progressResponse] = await Promise.all([
+          fetch("/api/notion-test"),
+          fetch("/api/progress"),
+        ]);
+
+        const applicationsData = await applicationsResponse.json();
+        const progressData = await progressResponse.json();
+
+        if (applicationsData.success) {
+          setApplications(applicationsData.applications);
+        }
+
+        if (progressData.success) {
+          setProgress(progressData.progress);
+        }
+      } catch (error) {
+        console.error("读取 Notion 数据失败：", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  const sortedProgress = useMemo(() => {
+    return [...progress].sort((a, b) => {
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return b.date.localeCompare(a.date);
+    });
+  }, [progress]);
+
+  const latestProgressByApplication = useMemo(() => {
+    const latestMap = new Map<string, ProgressEvent>();
+
+    sortedProgress.forEach((event) => {
+      event.applicationIds.forEach((applicationId) => {
+        if (!latestMap.has(applicationId)) {
+          latestMap.set(applicationId, event);
+        }
+      });
+    });
+
+    return latestMap;
+  }, [sortedProgress]);
+
+  const stats = useMemo(() => {
+    let active = 0;
+    let tests = 0;
+    let interviews = 0;
+    let offers = 0;
+
+    applications.forEach((application) => {
+      const latest = latestProgressByApplication.get(application.id);
+
+      const isTerminal =
+        application.status === "已挂" ||
+        latest?.result === "淘汰" ||
+        latest?.result === "主动放弃" ||
+        latest?.result === "流程终止";
+
+      const hasOffer =
+        application.status === "收到offer" ||
+        latest?.event === "收到Offer" ||
+        latest?.result === "Offer";
+
+      if (hasOffer) {
+        offers += 1;
+        return;
+      }
+
+      if (application.status !== "未投递" && !isTerminal) {
+        active += 1;
+      }
+
+      if (isTerminal) return;
+
+      if (
+        latest?.stage === "测评" ||
+        latest?.stage === "笔试" ||
+        ["测评中", "已测评", "笔试中", "已笔试"].includes(
+          application.status
+        )
+      ) {
+        tests += 1;
+      }
+
+      if (
+        latest?.stage === "AI面" ||
+        latest?.stage === "面试" ||
+        latest?.stage === "HR" ||
+        application.status === "面试中"
+      ) {
+        interviews += 1;
+      }
+    });
+
+    return [
+      { label: "总记录", value: applications.length },
+      { label: "进行中", value: active },
+      { label: "测评 / 笔试", value: tests },
+      { label: "面试中", value: interviews },
+      { label: "Offer", value: offers },
+    ];
+  }, [applications, latestProgressByApplication]);
+
+  const filteredApplications = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+
+    return [...applications]
+      .filter((item) => {
+        const matchesSearch =
+          !keyword ||
+          item.company.toLowerCase().includes(keyword) ||
+          item.role.toLowerCase().includes(keyword) ||
+          item.base.toLowerCase().includes(keyword);
+
+        const matchesStatus =
+          statusFilter === "全部" || item.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => {
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return b.date.localeCompare(a.date);
+      });
+  }, [applications, searchTerm, statusFilter]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredApplications.length / PAGE_SIZE)
+  );
+
+  const paginatedApplications = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+
+    return filteredApplications.slice(start, end);
+  }, [filteredApplications, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  /*
+   * 左侧“最近进展”只读取第二张 Notion 数据库：
+   * - 只有“求职进度记录”里存在历史事件的岗位才显示；
+   * - 同一个岗位只显示最新一条进展；
+   * - “全部”指全部有进展记录的岗位，不包含只有第一张表记录的岗位。
+   */
+  const latestProgress = useMemo(() => {
+    const seen = new Set<string>();
+    const result: ProgressEvent[] = [];
+
+    for (const item of sortedProgress) {
+      const applicationId = item.applicationIds?.[0];
+
+      if (!applicationId) continue;
+      if (seen.has(applicationId)) continue;
+
+      seen.add(applicationId);
+      result.push(item);
+    }
+
+    return result;
+  }, [sortedProgress]);
+
+  const visibleProgress = useMemo(() => {
+    const keyword = progressSearch.trim().toLowerCase();
+
+    return latestProgress.filter((item) => {
+      const matchesSearch =
+        !keyword ||
+        item.company.toLowerCase().includes(keyword) ||
+        item.role.toLowerCase().includes(keyword);
+
+      if (!matchesSearch) return false;
+      if (progressView === "all") return true;
+
+      const applicationId = item.applicationIds?.[0];
+      const application = applications.find(
+        (candidate) => candidate.id === applicationId
+      );
+
+      const isEnded =
+        application?.status === "已挂" ||
+        application?.status === "收到offer" ||
+        item.result === "淘汰" ||
+        item.result === "主动放弃" ||
+        item.result === "流程终止" ||
+        item.result === "Offer";
+
+      return !isEnded;
+    });
+  }, [applications, latestProgress, progressSearch, progressView]);
+
+  const upcomingTasks = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return progress
+      .filter((item) => item.nextDate)
+      .map((item) => {
+        const targetDate = new Date(`${item.nextDate}T00:00:00`);
+        targetDate.setHours(0, 0, 0, 0);
+
+        const diffDays = Math.round(
+          (targetDate.getTime() - today.getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+
+        return {
+          ...item,
+          diffDays,
+        };
+      })
+      .filter((item) => item.diffDays >= 0)
+      .sort((a, b) => a.diffDays - b.diffDays)
+      .slice(0, 6);
+  }, [progress]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen overflow-x-hidden bg-[#f5f5f3] text-[#171717]">
+      <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
+        <header className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <p className="mb-2 text-xs font-medium tracking-[0.18em] text-neutral-400 sm:text-sm">
+              JOB SEARCH / 2026
+            </p>
+
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              求职控制台
+            </h1>
+
+            <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-500">
+              把每一次投递、测评和面试变成一条清晰的轨迹。
+            </p>
+          </div>
+
+          <div className="w-fit rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm shadow-sm">
+            Sep. 2026
+          </div>
+        </header>
+
+        <section className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
+          {stats.map((item, index) => (
+            <div
+              key={item.label}
+              className={`min-w-0 rounded-[22px] p-4 sm:rounded-3xl sm:p-5 ${
+                index === 0
+                  ? "bg-neutral-900 text-white"
+                  : "border border-neutral-200 bg-white"
+              }`}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              <p
+                className={`text-xs sm:text-sm ${
+                  index === 0 ? "text-neutral-400" : "text-neutral-500"
+                }`}
+              >
+                {item.label}
+              </p>
+
+              <p className="mt-4 text-3xl font-semibold tracking-tight sm:mt-5 sm:text-4xl">
+                {loading ? "—" : item.value}
+              </p>
+            </div>
+          ))}
+        </section>
+
+        <section className="mt-5 min-w-0 rounded-[22px] border border-neutral-200 bg-white px-4 py-4 sm:mt-6 sm:rounded-[28px] sm:px-6 sm:py-5">
+          <div className="mb-4 flex items-start justify-between gap-4 sm:mb-5 sm:items-center">
+            <div className="min-w-0">
+              <p className="text-xs font-medium tracking-[0.16em] text-neutral-400">
+                UPCOMING
+              </p>
+
+              <h2 className="mt-1 text-xl font-semibold">待跟进</h2>
+            </div>
+
+            <span className="shrink-0 text-sm text-neutral-400">
+              {upcomingTasks.length} 项
+            </span>
+          </div>
+
+          {upcomingTasks.length === 0 ? (
+            <div className="py-5 text-sm text-neutral-400">
+              暂无即将到期的事项
+            </div>
+          ) : (
+            <div className="grid gap-2.5 sm:gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {upcomingTasks.map((item) => {
+                let dateLabel = item.nextDate || "";
+
+                if (item.diffDays === 0) {
+                  dateLabel = "今天";
+                } else if (item.diffDays === 1) {
+                  dateLabel = "明天";
+                } else if (item.diffDays <= 7) {
+                  dateLabel = `${item.diffDays} 天后`;
+                }
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      const applicationId = item.applicationIds?.[0];
+
+                      if (applicationId) {
+                        router.push(`/application/${applicationId}`);
+                      }
+                    }}
+                    className="flex min-w-0 items-start justify-between gap-3 rounded-2xl bg-[#f7f7f5] px-4 py-3.5 text-left transition hover:bg-neutral-100 sm:items-center sm:gap-4 sm:py-4"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium sm:text-base">
+                        {item.company || "未填写公司"}
+                      </p>
+
+                      <p className="mt-1 truncate text-xs text-neutral-400 sm:text-sm">
+                        {item.role}
+                      </p>
+
+                      <p className="mt-2 truncate text-xs text-neutral-500">
+                        当前进展 · {item.event}
+                      </p>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      <span
+                        className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs ${
+                          item.diffDays === 0
+                            ? "bg-red-50 text-red-600"
+                            : item.diffDays === 1
+                              ? "bg-orange-50 text-orange-600"
+                              : "bg-[#eee9ff] text-[#6554c0]"
+                        }`}
+                      >
+                        {dateLabel}
+                      </span>
+
+                      {item.nextDate && (
+                        <p className="mt-2 text-xs text-neutral-400">
+                          {item.nextDate}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div className="mt-6 grid min-w-0 gap-6 sm:mt-8 lg:grid-cols-[420px_minmax(0,1fr)]">
+          {/* 最近进展 */}
+          <section className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[28px] sm:p-6">
+            <div className="mb-5 sm:mb-7">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium tracking-[0.16em] text-neutral-400">
+                    ACTIVITY
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-semibold">最近进展</h2>
+                </div>
+
+                <span className="shrink-0 text-xs text-neutral-400 sm:text-sm">
+                  {visibleProgress.length} 个岗位
+                </span>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <div className="flex w-full rounded-full bg-[#f5f5f3] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setProgressView("active")}
+                    className={`min-w-0 flex-1 rounded-full px-3 py-2 text-xs transition ${
+                      progressView === "active"
+                        ? "bg-white font-medium shadow-sm"
+                        : "text-neutral-400"
+                    }`}
+                  >
+                    进行中
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setProgressView("all")}
+                    className={`min-w-0 flex-1 rounded-full px-3 py-2 text-xs transition ${
+                      progressView === "all"
+                        ? "bg-white font-medium shadow-sm"
+                        : "text-neutral-400"
+                    }`}
+                  >
+                    全部
+                  </button>
+                </div>
+
+                <input
+                  value={progressSearch}
+                  onChange={(event) => setProgressSearch(event.target.value)}
+                  placeholder="搜索公司或岗位..."
+                  className="w-full min-w-0 rounded-full border border-neutral-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-neutral-400 sm:px-4"
+                />
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              {visibleProgress.map((item) => {
+                const applicationId = item.applicationIds?.[0];
+
+                const applicationDate =
+                  applications.find(
+                    (application) => application.id === applicationId
+                  )?.date ?? null;
+
+                return (
+                  <ExpandableProcess
+                    key={item.id}
+                    item={item}
+                    allProgress={progress}
+                    applicationDate={applicationDate}
+                  />
+                );
+              })}
+
+              {!loading && visibleProgress.length === 0 && (
+                <p className="py-10 text-center text-sm text-neutral-400">
+                  暂无符合条件的岗位
+                </p>
+              )}
+            </div>
+          </section>
+
+          {/* 我的投递 */}
+          <section className="w-full min-w-0 overflow-hidden rounded-[22px] border border-neutral-200 bg-white sm:rounded-[28px]">
+            <div className="flex items-center justify-between gap-3 px-4 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6">
+              <div className="min-w-0">
+                <p className="text-xs font-medium tracking-[0.16em] text-neutral-400">
+                  APPLICATIONS
+                </p>
+
+                <h2 className="mt-1 text-xl font-semibold">我的投递</h2>
+              </div>
+
+              <div className="shrink-0">
+                <AddApplicationModal />
+              </div>
+            </div>
+
+            <div className="grid gap-3 border-t border-neutral-100 px-4 py-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="搜索公司、岗位、城市..."
+                className="w-full min-w-0 rounded-full border border-neutral-200 bg-[#f7f7f5] px-4 py-2.5 text-sm outline-none transition focus:border-neutral-400"
+              />
+
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="w-full min-w-0 rounded-full border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none md:w-auto"
+              >
+                <option value="全部">全部状态</option>
+                <option value="未投递">未投递</option>
+                <option value="已投递">已投递</option>
+                <option value="测评中">测评中</option>
+                <option value="已测评">已测评</option>
+                <option value="笔试中">笔试中</option>
+                <option value="已笔试">已笔试</option>
+                <option value="面试中">面试中</option>
+                <option value="已挂">已挂</option>
+                <option value="收到offer">收到 Offer</option>
+              </select>
+
+              <span className="text-right text-xs text-neutral-400 md:text-sm">
+                {filteredApplications.length} 条
+              </span>
+            </div>
+
+            {/* 手机端：卡片 */}
+            <div className="divide-y divide-neutral-100 md:hidden">
+              {paginatedApplications.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => router.push(`/application/${item.id}`)}
+                  className="block w-full min-w-0 px-4 py-4 text-left transition active:bg-neutral-50"
+                >
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">
+                        {item.company || "—"}
+                      </p>
+
+                      <p className="mt-1 line-clamp-2 break-words text-sm leading-5 text-neutral-500">
+                        {item.role || "—"}
+                      </p>
+                    </div>
+
+                    <div className="shrink-0">
+                      <StatusBadge status={item.status} />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-xs text-neutral-400">
+                      {item.base || "未填写 Base"}
+                    </span>
+
+                    <span className="shrink-0 text-xs text-neutral-300">
+                      {item.date || "—"}
+                    </span>
+                  </div>
+                </button>
+              ))}
+
+              {paginatedApplications.length === 0 && (
+                <div className="px-4 py-10 text-center text-sm text-neutral-400">
+                  没有符合条件的岗位
+                </div>
+              )}
+            </div>
+
+            {/* 桌面端：表格 */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[760px] text-left">
+                <thead>
+                  <tr className="border-y border-neutral-100 text-xs text-neutral-400">
+                    <th className="w-[22%] px-6 py-3 font-medium">公司</th>
+                    <th className="w-[40%] px-4 py-3 font-medium">岗位</th>
+                    <th className="w-[18%] px-4 py-3 font-medium">状态</th>
+                    <th className="w-[20%] px-6 py-3 font-medium">Base</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {paginatedApplications.map((item) => (
+                    <tr
+                      key={item.id}
+                      onClick={() => router.push(`/application/${item.id}`)}
+                      className="cursor-pointer border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                    >
+                      <td className="px-6 py-5 font-medium">
+                        {item.company || "—"}
+                      </td>
+
+                      <td className="px-4 py-5 text-sm text-neutral-600">
+                        {item.role || "—"}
+                      </td>
+
+                      <td className="px-4 py-5">
+                        <StatusBadge status={item.status} />
+                      </td>
+
+                      <td className="px-6 py-5 text-sm text-neutral-400">
+                        {item.base || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 分页必须放在“我的投递”卡片内部 */}
+            <div className="flex flex-col gap-3 border-t border-neutral-100 px-4 py-4 sm:px-6 sm:py-5 md:flex-row md:items-center md:justify-between">
+              <p className="text-xs text-neutral-400">
+                {filteredApplications.length === 0
+                  ? "暂无岗位"
+                  : `第 ${
+                      (currentPage - 1) * PAGE_SIZE + 1
+                    }–${Math.min(
+                      currentPage * PAGE_SIZE,
+                      filteredApplications.length
+                    )} 条，共 ${filteredApplications.length} 条`}
+              </p>
+
+              <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2 md:flex md:w-auto">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() =>
+                    setCurrentPage((page) => Math.max(1, page - 1))
+                  }
+                  className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 md:px-4"
+                >
+                  ← 上一页
+                </button>
+
+                <div className="flex min-w-[58px] items-center justify-center whitespace-nowrap text-xs text-neutral-500">
+                  {currentPage} / {totalPages}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(totalPages, page + 1)
+                    )
+                  }
+                  className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 md:px-4"
+                >
+                  下一页 →
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        <footer className="mt-8 text-center text-xs text-neutral-400">
+          Renaissance Job Tracker · Powered by Notion
+        </footer>
+      </div>
+    </main>
   );
 }
