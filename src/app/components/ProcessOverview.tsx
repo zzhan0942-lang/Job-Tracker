@@ -65,7 +65,12 @@ export default function ProcessOverview({
   if (applicationDate) {
     experiencedStages.add("投递");
   }
-
+const furthestExperiencedIndex = Math.max(
+  0,
+  ...Array.from(experiencedStages)
+    .map((stage) => steps.indexOf(stage))
+    .filter((index) => index >= 0)
+);
   const isFailed =
     latest?.event === "淘汰" ||
     latest?.result === "淘汰" ||
@@ -183,12 +188,12 @@ export default function ProcessOverview({
               index === currentIndex;
 
             const completed =
-              index < currentIndex &&
-              experiencedStages.has(step);
+  experiencedStages.has(step) &&
+  !current;
 
-            const skipped =
-              index < currentIndex &&
-              !experiencedStages.has(step);
+const skipped =
+  !experiencedStages.has(step) &&
+  index < furthestExperiencedIndex;
 
             const failed =
               current && isFailed;

@@ -140,6 +140,13 @@ if (applicationDate) {
   experiencedStages.add("投递");
 }
   
+const furthestExperiencedIndex = Math.max(
+  0,
+  ...Array.from(experiencedStages)
+    .map((stage) => steps.indexOf(stage))
+    .filter((index) => index >= 0)
+);
+
   const currentStage = item.stage || "投递";
 
   const currentIndex = Math.max(
@@ -247,13 +254,12 @@ if (applicationDate) {
 
 // 只有数据库里真的发生过，才显示为完成
 const completed =
-  index < currentIndex &&
-  experiencedStages.has(step);
+  experiencedStages.has(step) &&
+  !current;
 
-// 已经越过了，但实际上没发生
 const skipped =
-  index < currentIndex &&
-  !experiencedStages.has(step);
+  !experiencedStages.has(step) &&
+  index < furthestExperiencedIndex;
 
 const failed =
   current && isFailed;
