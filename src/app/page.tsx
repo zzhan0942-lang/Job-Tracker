@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddApplicationModal from "./components/AddApplicationModal";
+import ConversionInsights from "./components/ConversionInsights";
 import ExpandableProcess from "./components/ExpandableProcess";
 import Insights from "./components/Insights";
 import StatusBadge from "./components/StatusBadge";
@@ -377,7 +378,7 @@ export default function Home() {
               onClick={() => setThemeMenuOpen((open) => !open)}
               aria-expanded={themeMenuOpen}
               aria-haspopup="menu"
-              className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm shadow-sm transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-[#171719] dark:hover:bg-neutral-800"
+              className="h-11 rounded-full border border-neutral-200 bg-white px-4 text-sm shadow-sm transition hover:bg-neutral-50 sm:h-auto sm:px-4 sm:py-2 sm:text-sm dark:border-neutral-800 dark:bg-[#171719] dark:hover:bg-neutral-800"
             >
               <span className="sm:hidden">{themeLabels[themeMode]} · ▾</span>
               <span className="hidden sm:inline">Sep. 2026 · {themeLabels[themeMode]} · ▾</span>
@@ -386,7 +387,7 @@ export default function Home() {
             {themeMenuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 z-20 mt-2 w-36 overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl dark:border-neutral-700 dark:bg-[#202023]"
+                className="absolute left-0 z-20 mt-2 w-[190px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1 sm:w-36 sm:p-1.5 shadow-xl dark:border-neutral-700 dark:bg-[#202023]"
               >
                 {(Object.keys(themeLabels) as ThemeMode[]).map((mode) => (
                   <button
@@ -398,14 +399,18 @@ export default function Home() {
                       setThemeMode(mode);
                       setThemeMenuOpen(false);
                     }}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-1.5 text-left text-sm transition sm:px-3 sm:py-2 ${
                       themeMode === mode
                         ? "bg-[#f0f2f1] font-medium dark:bg-neutral-700"
                         : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
                     }`}
                   >
                     {themeLabels[mode]}
-                    {themeMode === mode && <span aria-hidden="true">✓</span>}
+                    {themeMode === mode && (
+                      <span aria-hidden="true" className="text-xs sm:text-sm">
+                        ✓
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -522,6 +527,8 @@ export default function Home() {
             </div>
           )}
         </section>
+
+        <ConversionInsights applications={applications} progress={progress} />
 
         <Insights
           applications={applications}
