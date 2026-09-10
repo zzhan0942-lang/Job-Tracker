@@ -167,7 +167,7 @@ const furthestExperiencedIndex = Math.max(
   }
 
   return (
-    <div className="border-t border-neutral-100 first:border-t-0">
+    <div className="border-t border-neutral-100 first:border-t-0 dark:border-neutral-800">
       {/* 点击区域 */}
       <button
         type="button"
@@ -192,7 +192,7 @@ const furthestExperiencedIndex = Math.max(
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <span className="rounded-full bg-[#eee9ff] px-3 py-1 text-xs text-[#6554c0]">
+                <span className="rounded-full bg-[#eee9ff] px-3 py-1 text-xs text-[#6554c0] dark:bg-violet-950 dark:text-violet-300">
                   {item.event || "未设置"}
                 </span>
 
@@ -216,7 +216,7 @@ const furthestExperiencedIndex = Math.max(
 
       {/* 展开流程 */}
       {open && (
-        <div className="mb-4 ml-0 rounded-2xl bg-[#f7f7f5] px-3.5 py-4 sm:mb-5 sm:ml-8 sm:px-5 sm:py-5">
+        <div className="mb-4 ml-0 rounded-2xl bg-[#f7f7f5] px-3.5 py-4 dark:bg-[#222224] sm:mb-5 sm:ml-8 sm:px-5 sm:py-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium tracking-[0.14em] text-neutral-400">
@@ -235,7 +235,7 @@ const furthestExperiencedIndex = Math.max(
 {/* 紧凑流程条 */}
 <div className="relative mt-5 px-0 sm:mt-6 sm:px-1">
   {/* 灰色底线 */}
-  <div className="absolute left-[7%] right-[7%] top-[13px] h-[2px] bg-neutral-200" />
+  <div className="absolute left-[7%] right-[7%] top-[13px] h-[2px] bg-neutral-200 dark:bg-neutral-800" />
 
   {/* 已完成蓝色线 */}
   <div
@@ -277,7 +277,7 @@ const failed =
                 ? "border-red-500 bg-red-500 text-white"
                 : current
                 ? "border-[#1976ff] bg-[#1976ff] text-white"
-                : "border-neutral-200 bg-white text-neutral-400"
+                : "border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-[#171719] dark:text-neutral-500"
             }`}
           >
             {completed
@@ -325,7 +325,7 @@ const failed =
   currentIndex >= steps.indexOf("面试") ||
   interviewEvents.length > 0
 ) && (
-  <div className="mt-4 rounded-2xl border border-neutral-200 bg-white px-3 py-3.5 sm:mt-5 sm:px-4 sm:py-4">
+  <div className="mt-4 rounded-2xl border border-neutral-200 bg-white px-3 py-3.5 dark:border-neutral-700 dark:bg-[#171719] sm:mt-5 sm:px-4 sm:py-4">
     <div className="mb-4 flex items-center justify-between">
       <p className="text-xs font-medium text-neutral-500">
         面试流程
@@ -337,7 +337,7 @@ const failed =
     </div>
 
     <div className="relative ml-2">
-      <div className="absolute bottom-4 left-[11px] top-3 w-[2px] bg-neutral-200" />
+      <div className="absolute bottom-4 left-[11px] top-3 w-[2px] bg-neutral-200 dark:bg-neutral-800" />
 
       <div className="space-y-5">
         {interviewSteps.map((step, index) => {
@@ -372,8 +372,8 @@ const failed =
                     : active
                     ? "border-[#1976ff] bg-[#1976ff] text-white"
                     : skipped
-                    ? "border-neutral-200 bg-neutral-100 text-neutral-300"
-                    : "border-neutral-200 bg-white text-neutral-300"
+                    ? "border-neutral-200 bg-neutral-100 text-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-600"
+                    : "border-neutral-200 bg-white text-neutral-300 dark:border-neutral-700 dark:bg-[#171719] dark:text-neutral-600"
                 }`}
               >
                 {completed
@@ -411,7 +411,7 @@ const failed =
 )}
 
           {/* 底部 */}
-          <div className="mt-4 flex items-center justify-between border-t border-neutral-200 pt-4">
+          <div className="mt-4 flex items-center justify-between border-t border-neutral-200 pt-4 dark:border-neutral-700">
             <div className="text-xs text-neutral-500">
               {isFailed ? (
                 <span className="text-red-500">
@@ -438,7 +438,7 @@ const failed =
                   );
                 }
               }}
-              className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs transition hover:bg-neutral-100"
+                    className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-[#171719] dark:hover:bg-neutral-800"
             >
               查看完整详情 →
             </button>

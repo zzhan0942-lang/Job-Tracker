@@ -102,7 +102,7 @@ export default function ApplicationDetailPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f5f5f3] px-4 py-8 text-sm text-neutral-500 sm:px-6 sm:py-10">
+      <main className="min-h-screen bg-[#f5f5f3] px-4 py-8 text-sm text-neutral-500 dark:bg-[#101011] dark:text-neutral-400 sm:px-6 sm:py-10">
         正在读取岗位信息...
       </main>
     );
@@ -110,19 +110,19 @@ export default function ApplicationDetailPage() {
 
   if (!application) {
     return (
-      <main className="min-h-screen bg-[#f5f5f3] px-4 py-8 text-sm text-neutral-500 sm:px-6 sm:py-10">
+      <main className="min-h-screen bg-[#f5f5f3] px-4 py-8 text-sm text-neutral-500 dark:bg-[#101011] dark:text-neutral-400 sm:px-6 sm:py-10">
         没有找到这个岗位。
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f5f5f3] text-[#171717]">
+    <main className="min-h-screen overflow-x-hidden bg-[#f5f5f3] text-[#171717] dark:bg-[#101011] dark:text-[#f5f5f5]">
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
         <button
           type="button"
           onClick={() => router.back()}
-          className="mb-7 text-sm text-neutral-500 transition hover:text-black sm:mb-10"
+          className="mb-7 text-sm text-neutral-500 transition hover:text-black dark:text-neutral-400 dark:hover:text-white sm:mb-10"
         >
           ← 返回求职控制台
         </button>
@@ -185,7 +185,7 @@ export default function ApplicationDetailPage() {
                     alert(data.error || "删除失败");
                   }
                 }}
-                className="rounded-full border border-red-200 px-4 py-2 text-sm text-red-500 transition hover:bg-red-50"
+                className="rounded-full border border-red-200 px-4 py-2 text-sm text-red-500 transition hover:bg-red-50 dark:border-red-950 dark:hover:bg-red-950/50"
               >
                 删除岗位
               </button>
@@ -195,7 +195,7 @@ export default function ApplicationDetailPage() {
 
         {/* 基础信息 */}
         <section className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 sm:gap-4 md:grid-cols-3">
-          <div className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-3xl sm:p-5">
+          <div className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#171719] sm:rounded-3xl sm:p-5">
             <p className="text-xs text-neutral-400">
               BASE
             </p>
@@ -205,7 +205,7 @@ export default function ApplicationDetailPage() {
             </p>
           </div>
 
-          <div className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-3xl sm:p-5">
+          <div className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#171719] sm:rounded-3xl sm:p-5">
             <p className="text-xs text-neutral-400">
               投递日期
             </p>
@@ -215,7 +215,7 @@ export default function ApplicationDetailPage() {
             </p>
           </div>
 
-          <div className="col-span-2 min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-3xl sm:p-5 md:col-span-1">
+          <div className="col-span-2 min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#171719] sm:rounded-3xl sm:p-5 md:col-span-1">
             <p className="text-xs text-neutral-400">
               进展记录
             </p>
@@ -235,7 +235,7 @@ export default function ApplicationDetailPage() {
         </div>
 
         {/* 时间线 */}
-        <section className="min-w-0 overflow-hidden rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[30px] sm:p-7">
+        <section className="min-w-0 overflow-hidden rounded-[22px] border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#171719] sm:rounded-[30px] sm:p-7">
           <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-medium tracking-[0.16em] text-neutral-400">
@@ -268,10 +268,10 @@ export default function ApplicationDetailPage() {
                   className="relative flex min-w-0 gap-4 pb-8 last:pb-0 sm:gap-6 sm:pb-9"
                 >
                   <div className="relative flex w-4 shrink-0 justify-center sm:w-5">
-                    <div className="z-10 mt-1 h-3 w-3 rounded-full bg-neutral-900" />
+                    <div className="z-10 mt-1 h-3 w-3 rounded-full bg-neutral-900 dark:bg-white" />
 
                     {index !== timeline.length - 1 && (
-                      <div className="absolute bottom-[-4px] top-4 w-px bg-neutral-200" />
+                      <div className="absolute bottom-[-4px] top-4 w-px bg-neutral-200 dark:bg-neutral-800" />
                     )}
                   </div>
 
@@ -289,13 +289,13 @@ export default function ApplicationDetailPage() {
 
                       <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
                         {item.stage && (
-                          <span className="rounded-full bg-[#eee9ff] px-3 py-1 text-xs text-[#6554c0]">
+                          <span className="rounded-full bg-[#eee9ff] px-3 py-1 text-xs text-[#6554c0] dark:bg-violet-950 dark:text-violet-300">
                             {item.stage}
                           </span>
                         )}
 
                         {item.result && (
-                          <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs">
+                          <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs dark:bg-neutral-800">
                             {item.result}
                           </span>
                         )}

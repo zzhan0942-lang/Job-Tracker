@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddApplicationModal from "./components/AddApplicationModal";
 import ExpandableProcess from "./components/ExpandableProcess";
+import Insights from "./components/Insights";
 import StatusBadge from "./components/StatusBadge";
 
 type Application = {
@@ -283,7 +284,7 @@ export default function Home() {
   }, [progress]);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f5f5f3] text-[#171717]">
+    <main className="min-h-screen overflow-x-hidden bg-[#f5f5f3] text-[#171717] dark:bg-[#101011] dark:text-[#f5f5f5]">
       <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
         <header className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
@@ -300,8 +301,9 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="w-fit rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm shadow-sm">
-            Sep. 2026
+          <div className="w-fit rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm shadow-sm dark:border-neutral-800 dark:bg-[#171719]">
+            <span className="sm:hidden">跟随系统</span>
+            <span className="hidden sm:inline">Sep. 2026 · 跟随系统</span>
           </div>
         </header>
 
@@ -311,8 +313,8 @@ export default function Home() {
               key={item.label}
               className={`min-w-0 rounded-[22px] p-4 sm:rounded-3xl sm:p-5 ${
                 index === 0
-                  ? "bg-neutral-900 text-white"
-                  : "border border-neutral-200 bg-white"
+                  ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                  : "border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#171719]"
               }`}
             >
               <p
@@ -330,7 +332,7 @@ export default function Home() {
           ))}
         </section>
 
-        <section className="mt-5 min-w-0 rounded-[22px] border border-neutral-200 bg-white px-4 py-4 sm:mt-6 sm:rounded-[28px] sm:px-6 sm:py-5">
+        <section className="mt-5 min-w-0 rounded-[22px] border border-neutral-200 bg-white px-4 py-4 sm:mt-6 sm:rounded-[28px] sm:px-6 sm:py-5 dark:border-neutral-800 dark:bg-[#171719]">
           <div className="mb-4 flex items-start justify-between gap-4 sm:mb-5 sm:items-center">
             <div className="min-w-0">
               <p className="text-xs font-medium tracking-[0.16em] text-neutral-400">
@@ -373,7 +375,7 @@ export default function Home() {
                         router.push(`/application/${applicationId}`);
                       }
                     }}
-                    className="flex min-w-0 items-start justify-between gap-3 rounded-2xl bg-[#f7f7f5] px-4 py-3.5 text-left transition hover:bg-neutral-100 sm:items-center sm:gap-4 sm:py-4"
+                    className="flex min-w-0 items-start justify-between gap-3 rounded-2xl bg-[#f7f7f5] px-4 py-3.5 text-left transition hover:bg-neutral-100 dark:bg-[#222224] dark:hover:bg-neutral-800 sm:items-center sm:gap-4 sm:py-4"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium sm:text-base">
@@ -415,9 +417,15 @@ export default function Home() {
           )}
         </section>
 
+        <Insights
+          applications={applications}
+          progress={progress}
+          loading={loading}
+        />
+
         <div className="mt-6 grid min-w-0 gap-6 sm:mt-8 lg:grid-cols-[420px_minmax(0,1fr)]">
           {/* 最近进展 */}
-          <section className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[28px] sm:p-6">
+          <section className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[28px] sm:p-6 dark:border-neutral-800 dark:bg-[#171719]">
             <div className="mb-5 sm:mb-7">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -434,13 +442,13 @@ export default function Home() {
               </div>
 
               <div className="mt-5 space-y-3">
-                <div className="flex w-full rounded-full bg-[#f5f5f3] p-1">
+                <div className="flex w-full rounded-full bg-[#f5f5f3] p-1 dark:bg-neutral-800">
                   <button
                     type="button"
                     onClick={() => setProgressView("active")}
                     className={`min-w-0 flex-1 rounded-full px-3 py-2 text-xs transition ${
                       progressView === "active"
-                        ? "bg-white font-medium shadow-sm"
+                        ? "bg-white font-medium shadow-sm dark:bg-[#27272a]"
                         : "text-neutral-400"
                     }`}
                   >
@@ -452,7 +460,7 @@ export default function Home() {
                     onClick={() => setProgressView("all")}
                     className={`min-w-0 flex-1 rounded-full px-3 py-2 text-xs transition ${
                       progressView === "all"
-                        ? "bg-white font-medium shadow-sm"
+                        ? "bg-white font-medium shadow-sm dark:bg-[#27272a]"
                         : "text-neutral-400"
                     }`}
                   >
@@ -464,7 +472,7 @@ export default function Home() {
                   value={progressSearch}
                   onChange={(event) => setProgressSearch(event.target.value)}
                   placeholder="搜索公司或岗位..."
-                  className="w-full min-w-0 rounded-full border border-neutral-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-neutral-400 sm:px-4"
+                  className="w-full min-w-0 rounded-full border border-neutral-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-neutral-400 dark:border-neutral-700 dark:bg-[#111113] dark:focus:border-neutral-500 sm:px-4"
                 />
               </div>
             </div>
@@ -497,7 +505,7 @@ export default function Home() {
           </section>
 
           {/* 我的投递 */}
-          <section className="w-full min-w-0 overflow-hidden rounded-[22px] border border-neutral-200 bg-white sm:rounded-[28px]">
+          <section className="w-full min-w-0 overflow-hidden rounded-[22px] border border-neutral-200 bg-white sm:rounded-[28px] dark:border-neutral-800 dark:bg-[#171719]">
             <div className="flex items-center justify-between gap-3 px-4 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6">
               <div className="min-w-0">
                 <p className="text-xs font-medium tracking-[0.16em] text-neutral-400">
@@ -512,18 +520,18 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="grid gap-3 border-t border-neutral-100 px-4 py-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
+            <div className="grid gap-3 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="搜索公司、岗位、城市..."
-                className="w-full min-w-0 rounded-full border border-neutral-200 bg-[#f7f7f5] px-4 py-2.5 text-sm outline-none transition focus:border-neutral-400"
+                className="w-full min-w-0 rounded-full border border-neutral-200 bg-[#f7f7f5] px-4 py-2.5 text-sm outline-none transition focus:border-neutral-400 dark:border-neutral-700 dark:bg-[#222224] dark:focus:border-neutral-500"
               />
 
               <select
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value)}
-                className="w-full min-w-0 rounded-full border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none md:w-auto"
+                className="w-full min-w-0 rounded-full border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none dark:border-neutral-700 dark:bg-[#111113] md:w-auto"
               >
                 <option value="全部">全部状态</option>
                 <option value="未投递">未投递</option>
@@ -543,13 +551,13 @@ export default function Home() {
             </div>
 
             {/* 手机端：卡片 */}
-            <div className="divide-y divide-neutral-100 md:hidden">
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800 md:hidden">
               {paginatedApplications.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => router.push(`/application/${item.id}`)}
-                  className="block w-full min-w-0 px-4 py-4 text-left transition active:bg-neutral-50"
+                  className="block w-full min-w-0 px-4 py-4 text-left transition active:bg-neutral-50 dark:active:bg-neutral-800"
                 >
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -590,7 +598,7 @@ export default function Home() {
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[760px] text-left">
                 <thead>
-                  <tr className="border-y border-neutral-100 text-xs text-neutral-400">
+                  <tr className="border-y border-neutral-100 text-xs text-neutral-400 dark:border-neutral-800">
                     <th className="w-[22%] px-6 py-3 font-medium">公司</th>
                     <th className="w-[40%] px-4 py-3 font-medium">岗位</th>
                     <th className="w-[18%] px-4 py-3 font-medium">状态</th>
@@ -603,7 +611,7 @@ export default function Home() {
                     <tr
                       key={item.id}
                       onClick={() => router.push(`/application/${item.id}`)}
-                      className="cursor-pointer border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                      className="cursor-pointer border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
                     >
                       <td className="px-6 py-5 font-medium">
                         {item.company || "—"}
@@ -627,7 +635,7 @@ export default function Home() {
             </div>
 
             {/* 分页必须放在“我的投递”卡片内部 */}
-            <div className="flex flex-col gap-3 border-t border-neutral-100 px-4 py-4 sm:px-6 sm:py-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800 sm:px-6 sm:py-5 md:flex-row md:items-center md:justify-between">
               <p className="text-xs text-neutral-400">
                 {filteredApplications.length === 0
                   ? "暂无岗位"
@@ -646,7 +654,7 @@ export default function Home() {
                   onClick={() =>
                     setCurrentPage((page) => Math.max(1, page - 1))
                   }
-                  className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 md:px-4"
+                  className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800 md:px-4"
                 >
                   ← 上一页
                 </button>
@@ -663,7 +671,7 @@ export default function Home() {
                       Math.min(totalPages, page + 1)
                     )
                   }
-                  className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 md:px-4"
+                  className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800 md:px-4"
                 >
                   下一页 →
                 </button>

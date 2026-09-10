@@ -155,7 +155,7 @@ const furthestExperiencedIndex = Math.max(
   }
 
   return (
-    <section className="mb-6 min-w-0 overflow-hidden rounded-[22px] border border-neutral-200 bg-white p-4 sm:mb-8 sm:rounded-[30px] sm:p-7">
+    <section className="mb-6 min-w-0 overflow-hidden rounded-[22px] border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#171719] sm:mb-8 sm:rounded-[30px] sm:p-7">
       <div className="mb-6 flex min-w-0 flex-col gap-4 sm:mb-7 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-[10px] font-medium tracking-[0.14em] text-neutral-400 sm:text-xs sm:tracking-[0.16em]">
@@ -180,7 +180,7 @@ const furthestExperiencedIndex = Math.max(
 
       {/* 主流程：手机端仍然保留 7 个阶段横向完整显示 */}
       <div className="relative min-w-0 px-0 sm:px-2">
-        <div className="absolute left-[7%] right-[7%] top-[11px] h-[2px] bg-neutral-200 sm:top-[14px]" />
+        <div className="absolute left-[7%] right-[7%] top-[11px] h-[2px] bg-neutral-200 dark:bg-neutral-800 sm:top-[14px]" />
 
         <div className="relative grid min-w-0 grid-cols-7">
           {steps.map((step, index) => {
@@ -215,8 +215,8 @@ const skipped =
                       : current
                       ? "border-[#1976ff] bg-[#1976ff] text-white"
                       : skipped
-                      ? "border-neutral-200 bg-neutral-100 text-neutral-300"
-                      : "border-neutral-200 bg-white text-neutral-400"
+                      ? "border-neutral-200 bg-neutral-100 text-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-600"
+                      : "border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-[#171719] dark:text-neutral-500"
                   }`}
                 >
                   {completed
@@ -259,7 +259,7 @@ const skipped =
 
       {/* 面试分支 */}
       {interviewEvents.length > 0 && (
-        <div className="mt-6 min-w-0 rounded-2xl bg-[#f7f7f5] p-4 sm:mt-8 sm:p-5">
+        <div className="mt-6 min-w-0 rounded-2xl bg-[#f7f7f5] p-4 dark:bg-[#222224] sm:mt-8 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
             <p className="text-sm font-medium">
               面试轮次
@@ -271,7 +271,7 @@ const skipped =
           </div>
 
           <div className="relative ml-0.5 sm:ml-1">
-            <div className="absolute bottom-3 left-[9px] top-3 w-[2px] bg-neutral-200 sm:left-[10px]" />
+            <div className="absolute bottom-3 left-[9px] top-3 w-[2px] bg-neutral-200 dark:bg-neutral-800 sm:left-[10px]" />
 
             <div className="space-y-4 sm:space-y-5">
               {interviewSteps.map(
@@ -315,8 +315,8 @@ const skipped =
                             : active
                             ? "border-[#1976ff] bg-[#1976ff] text-white"
                             : skipped
-                            ? "border-neutral-200 bg-neutral-100"
-                            : "border-neutral-200 bg-white"
+                            ? "border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800"
+                            : "border-neutral-200 bg-white dark:border-neutral-700 dark:bg-[#171719]"
                         }`}
                       >
                         {completed
@@ -355,7 +355,7 @@ const skipped =
       )}
 
       {isFailed && (
-        <div className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-500 sm:mt-6">
+        <div className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-500 dark:bg-red-950/50 dark:text-red-300 sm:mt-6">
           流程已结束 ·{" "}
           {latest?.result || "淘汰"}
         </div>
