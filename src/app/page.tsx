@@ -58,6 +58,7 @@ export default function Home() {
   const [progressView, setProgressView] = useState<"active" | "all">(
     "active"
   );
+  const [progressPage, setProgressPage] = useState(1);
 
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
@@ -306,6 +307,26 @@ export default function Home() {
       return !isEnded;
     });
   }, [applications, latestProgress, progressSearch, progressView]);
+
+  const totalProgressPages = Math.max(
+    1,
+    Math.ceil(visibleProgress.length / PAGE_SIZE)
+  );
+
+  const paginatedProgress = useMemo(() => {
+    const start = (progressPage - 1) * PAGE_SIZE;
+    return visibleProgress.slice(start, start + PAGE_SIZE);
+  }, [progressPage, visibleProgress]);
+
+  useEffect(() => {
+    setProgressPage(1);
+  }, [progressSearch, progressView]);
+
+  useEffect(() => {
+    if (progressPage > totalProgressPages) {
+      setProgressPage(totalProgressPages);
+    }
+  }, [progressPage, totalProgressPages]);
 
   const upcomingTasks = useMemo(() => {
     const today = new Date();
@@ -563,7 +584,7 @@ export default function Home() {
             </div>
 
             <div className="min-w-0">
-              {visibleProgress.map((item) => {
+              {paginatedProgress.map((item) => {
                 const applicationId = item.applicationIds?.[0];
 
                 const applicationDate =
@@ -585,6 +606,48 @@ export default function Home() {
                 <p className="py-10 text-center text-sm text-neutral-400">
                   暂无符合条件的岗位
                 </p>
+              )}
+
+              {!loading && visibleProgress.length > 0 && (
+                <div className="mt-2 flex flex-col gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-800 sm:mt-3 sm:pt-5">
+                  <p className="text-xs text-neutral-400">
+                    第 {(progressPage - 1) * PAGE_SIZE + 1}–
+                    {Math.min(
+                      progressPage * PAGE_SIZE,
+                      visibleProgress.length
+                    )} 条，共 {visibleProgress.length} 条
+                  </p>
+
+                  <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={progressPage === 1}
+                      onClick={() =>
+                        setProgressPage((page) => Math.max(1, page - 1))
+                      }
+                      className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                    >
+                      ← 上一页
+                    </button>
+
+                    <div className="flex min-w-[58px] items-center justify-center whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
+                      {progressPage} / {totalProgressPages}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={progressPage === totalProgressPages}
+                      onClick={() =>
+                        setProgressPage((page) =>
+                          Math.min(totalProgressPages, page + 1)
+                        )
+                      }
+                      className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                    >
+                      下一页 →
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </section>
