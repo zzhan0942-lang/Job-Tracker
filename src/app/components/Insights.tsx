@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 type Application = {
   id: string;
   status: string;
@@ -74,6 +76,8 @@ function formatWeekLabel(date: string) {
 }
 
 export default function Insights({ applications, progress, loading }: Props) {
+  const [activeWeek, setActiveWeek] = useState<string | null>(null);
+  const [hoveredWeek, setHoveredWeek] = useState<string | null>(null);
   const sortedProgress = [...progress].sort((a, b) => {
     if (!a.date) return 1;
     if (!b.date) return -1;
@@ -148,6 +152,10 @@ export default function Insights({ applications, progress, loading }: Props) {
     .map(([week, count]) => ({ week, count }));
 
   const highestWeek = Math.max(...weeklyTrend.map((item) => item.count), 1);
+  const displayedWeek = hoveredWeek || activeWeek;
+  const displayedWeekData = weeklyTrend.find(
+    (item) => item.week === displayedWeek
+  );
   const funnelItems = [
     { label: "总投递", value: funnel.total, tone: "bg-[#3d4145] dark:bg-[#d7dbdd]" },
     { label: "仍在流程", value: funnel.pipeline, tone: "bg-[#8290a1] dark:bg-[#9ba8b8]" },
@@ -253,17 +261,40 @@ export default function Insights({ applications, progress, loading }: Props) {
         ) : weeklyTrend.length === 0 ? (
           <p className="py-14 text-center text-sm text-neutral-400">填写投递日期后，这里会显示每周节奏。</p>
         ) : (
-          <div className="mt-5 grid h-32 grid-cols-8 items-end gap-2 px-1 sm:h-36 sm:gap-3 lg:h-28 lg:px-4">
-            {weeklyTrend.map((item) => (
-              <div key={item.week} className="flex h-full min-w-0 flex-col justify-end">
-                <div className="group relative flex flex-1 items-end">
-                  <div className="w-full rounded-t-lg bg-[#8794a4] transition-colors group-hover:bg-[#707d8c] dark:bg-[#9ba8b8] dark:group-hover:bg-[#b5bfca]" style={{ height: `${Math.max((item.count / highestWeek) * 100, 8)}%` }} aria-label={`${formatWeekLabel(item.week)} 当周投递 ${item.count} 个岗位`} />
-                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded-full bg-[#3d4145] px-2 py-1 text-[10px] text-white opacity-0 transition group-hover:opacity-100 dark:bg-[#d7dbdd] dark:text-neutral-900">{item.count}</span>
+          <>
+            <div className="mt-5 grid h-32 grid-cols-8 items-end gap-2 px-1 sm:h-36 sm:gap-3 lg:h-28 lg:px-4">
+              {weeklyTrend.map((item) => (
+                <div key={item.week} className="flex h-full min-w-0 flex-col justify-end">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveWeek((current) =>
+                        current === item.week ? null : item.week
+                      )
+                    }
+                    onMouseEnter={() => setHoveredWeek(item.week)}
+                    onMouseLeave={() => setHoveredWeek(null)}
+                    onFocus={() => setHoveredWeek(item.week)}
+                    onBlur={() => setHoveredWeek(null)}
+                    aria-pressed={activeWeek === item.week}
+                    aria-label={`${formatWeekLabel(item.week)} 当周投递 ${item.count} 个岗位`}
+                    title={`${formatWeekLabel(item.week)} · ${item.count} 个岗位`}
+                    className="group relative flex flex-1 items-end rounded-t-lg outline-none focus-visible:ring-2 focus-visible:ring-[#8794a4] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#171719]"
+                  >
+                    <div className="w-full rounded-t-lg bg-[#8794a4] transition-colors group-hover:bg-[#707d8c] dark:bg-[#9ba8b8] dark:group-hover:bg-[#b5bfca]" style={{ height: `${Math.max((item.count / highestWeek) * 100, 8)}%` }} aria-label={`${formatWeekLabel(item.week)} 当周投递 ${item.count} 个岗位`} />
+                    <span className={`pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded-full bg-[#3d4145] px-2 py-1 text-[10px] text-white transition dark:bg-[#d7dbdd] dark:text-neutral-900 ${displayedWeek === item.week ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>{item.count}</span>
+                  </button>
+                  <p className="mt-2 truncate text-center text-[10px] text-neutral-400 sm:text-xs">{formatWeekLabel(item.week)}</p>
                 </div>
-                <p className="mt-2 truncate text-center text-[10px] text-neutral-400 sm:text-xs">{formatWeekLabel(item.week)}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            <p className="mt-4 min-h-5 text-center text-xs text-neutral-400" aria-live="polite">
+              {displayedWeekData
+                ? `${formatWeekLabel(displayedWeekData.week)} 当周投递 ${displayedWeekData.count} 个岗位`
+                : "轻点柱状图查看具体投递数量"}
+            </p>
+          </>
         )}
       </section>
     </section>

@@ -33,6 +33,14 @@ type ProgressEvent = {
   link: string | null;
 };
 
+type ThemeMode = "light" | "dark" | "system";
+
+const themeLabels: Record<ThemeMode, string> = {
+  light: "白天",
+  dark: "黑夜",
+  system: "跟随系统",
+};
+
 const PAGE_SIZE = 10;
 
 export default function Home() {
@@ -50,6 +58,47 @@ export default function Home() {
   const [progressView, setProgressView] = useState<"active" | "all">(
     "active"
   );
+
+  const [themeMode, setThemeMode] = useState<ThemeMode>("system");
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [themeReady, setThemeReady] = useState(false);
+
+  useEffect(() => {
+    const storedMode = window.localStorage.getItem("job-tracker-theme");
+
+    if (storedMode === "light" || storedMode === "dark" || storedMode === "system") {
+      setThemeMode(storedMode);
+    }
+
+    setThemeReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!themeReady) return;
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyTheme = () => {
+      const resolvedTheme =
+        themeMode === "system"
+          ? mediaQuery.matches
+            ? "dark"
+            : "light"
+          : themeMode;
+
+      document.documentElement.dataset.theme = resolvedTheme;
+    };
+
+    applyTheme();
+    window.localStorage.setItem("job-tracker-theme", themeMode);
+
+    const handleSystemChange = () => {
+      if (themeMode === "system") applyTheme();
+    };
+
+    mediaQuery.addEventListener("change", handleSystemChange);
+
+    return () => mediaQuery.removeEventListener("change", handleSystemChange);
+  }, [themeMode, themeReady]);
 
   useEffect(() => {
     async function loadData() {
@@ -301,9 +350,45 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="w-fit rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm shadow-sm dark:border-neutral-800 dark:bg-[#171719]">
-            <span className="sm:hidden">跟随系统</span>
-            <span className="hidden sm:inline">Sep. 2026 · 跟随系统</span>
+          <div className="relative w-fit">
+            <button
+              type="button"
+              onClick={() => setThemeMenuOpen((open) => !open)}
+              aria-expanded={themeMenuOpen}
+              aria-haspopup="menu"
+              className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm shadow-sm transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-[#171719] dark:hover:bg-neutral-800"
+            >
+              <span className="sm:hidden">{themeLabels[themeMode]} · ▾</span>
+              <span className="hidden sm:inline">Sep. 2026 · {themeLabels[themeMode]} · ▾</span>
+            </button>
+
+            {themeMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 z-20 mt-2 w-36 overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl dark:border-neutral-700 dark:bg-[#202023]"
+              >
+                {(Object.keys(themeLabels) as ThemeMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={themeMode === mode}
+                    onClick={() => {
+                      setThemeMode(mode);
+                      setThemeMenuOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
+                      themeMode === mode
+                        ? "bg-[#f0f2f1] font-medium dark:bg-neutral-700"
+                        : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                    }`}
+                  >
+                    {themeLabels[mode]}
+                    {themeMode === mode && <span aria-hidden="true">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </header>
 
