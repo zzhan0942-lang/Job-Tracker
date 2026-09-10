@@ -1,4 +1,6 @@
-# Renaissance Job Tracker
+# Job Tracker
+
+English | [简体中文](./README.zh-CN.md)
 
 A private, single-user job-search dashboard built with Next.js and Notion. Track applications, progress events, dates, notes, links, and status changes in a focused local-style interface while keeping the source repository free of personal data.
 
