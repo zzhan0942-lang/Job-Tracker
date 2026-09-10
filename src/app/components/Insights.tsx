@@ -31,15 +31,15 @@ const statusOrder = [
 ];
 
 const statusColors: Record<string, string> = {
-  面试中: "bg-blue-500",
-  笔试中: "bg-orange-500",
-  测评中: "bg-violet-500",
-  已投递: "bg-slate-500",
-  已笔试: "bg-amber-500",
-  已测评: "bg-purple-500",
-  已挂: "bg-red-500",
-  收到offer: "bg-emerald-500",
-  未投递: "bg-neutral-400",
+  面试中: "bg-[#78879a] dark:bg-[#91a0b4]",
+  笔试中: "bg-[#a28b76] dark:bg-[#b69f8b]",
+  测评中: "bg-[#93869d] dark:bg-[#aa9fba]",
+  已投递: "bg-[#87909a] dark:bg-[#9da6af]",
+  已笔试: "bg-[#a99a7b] dark:bg-[#bdb08f]",
+  已测评: "bg-[#9d8ca1] dark:bg-[#b4a2b9]",
+  已挂: "bg-[#a17f80] dark:bg-[#b99697]",
+  收到offer: "bg-[#799889] dark:bg-[#90ad9f]",
+  未投递: "bg-[#a6aaab] dark:bg-[#888d8f]",
 };
 
 function isTerminal(status: string, latest?: ProgressEvent) {
@@ -149,10 +149,10 @@ export default function Insights({ applications, progress, loading }: Props) {
 
   const highestWeek = Math.max(...weeklyTrend.map((item) => item.count), 1);
   const funnelItems = [
-    { label: "总投递", value: funnel.total, tone: "bg-neutral-900 dark:bg-white" },
-    { label: "仍在流程", value: funnel.pipeline, tone: "bg-blue-500" },
-    { label: "进入面试", value: funnel.interview, tone: "bg-violet-500" },
-    { label: "收到 Offer", value: funnel.offer, tone: "bg-emerald-500" },
+    { label: "总投递", value: funnel.total, tone: "bg-[#3d4145] dark:bg-[#d7dbdd]" },
+    { label: "仍在流程", value: funnel.pipeline, tone: "bg-[#8290a1] dark:bg-[#9ba8b8]" },
+    { label: "进入面试", value: funnel.interview, tone: "bg-[#978aa0] dark:bg-[#afa1b8]" },
+    { label: "收到 Offer", value: funnel.offer, tone: "bg-[#7e9a8a] dark:bg-[#98b09f]" },
   ];
 
   return (
@@ -175,7 +175,7 @@ export default function Insights({ applications, progress, loading }: Props) {
             <span className="rounded-full bg-[#f5f5f3] px-3 py-1 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-300">实时计算</span>
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 space-y-3.5">
             {funnelItems.map((item, index) => {
               const ratio = funnel.total
                 ? Math.max((item.value / funnel.total) * 100, item.value ? 8 : 0)
@@ -187,7 +187,7 @@ export default function Insights({ applications, progress, loading }: Props) {
                     <span className="text-neutral-500 dark:text-neutral-300">{item.label}</span>
                     <span className="font-semibold">{loading ? "—" : item.value}</span>
                   </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+                  <div className="h-2 overflow-hidden rounded-full bg-[#eef0ef] dark:bg-neutral-800">
                     <div className={`h-full rounded-full transition-all ${item.tone}`} style={{ width: loading ? "18%" : `${ratio}%` }} />
                   </div>
                   {index > 0 && !loading && funnel.total > 0 && (
@@ -205,7 +205,7 @@ export default function Insights({ applications, progress, loading }: Props) {
           <p className="text-xs font-medium tracking-[0.14em] text-neutral-400">STATUS MIX</p>
           <h3 className="mt-1 text-lg font-semibold">当前状态分布</h3>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 space-y-3.5">
             {loading ? (
               <div className="space-y-4">
                 {[0, 1, 2, 3].map((item) => <div key={item} className="h-9 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />)}
@@ -224,7 +224,7 @@ export default function Insights({ applications, progress, loading }: Props) {
                       </span>
                       <span className="shrink-0 font-semibold">{item.count}</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-[#eef0ef] dark:bg-neutral-800">
                       <div className={`h-full rounded-full ${statusColors[item.status] || "bg-neutral-400"}`} style={{ width: `${Math.max(ratio, 5)}%` }} />
                     </div>
                   </div>
@@ -247,18 +247,18 @@ export default function Insights({ applications, progress, loading }: Props) {
         </div>
 
         {loading ? (
-          <div className="mt-7 grid h-40 grid-cols-8 items-end gap-2 sm:gap-3">
+          <div className="mt-5 grid h-28 grid-cols-8 items-end gap-2 px-1 sm:h-32 sm:gap-3 lg:h-28 lg:px-4">
             {[36, 62, 48, 84, 56, 70, 42, 66].map((height, index) => <div key={index} className="animate-pulse rounded-t-xl bg-neutral-100 dark:bg-neutral-800" style={{ height: `${height}%` }} />)}
           </div>
         ) : weeklyTrend.length === 0 ? (
           <p className="py-14 text-center text-sm text-neutral-400">填写投递日期后，这里会显示每周节奏。</p>
         ) : (
-          <div className="mt-7 grid h-44 grid-cols-8 items-end gap-2 sm:h-52 sm:gap-3">
+          <div className="mt-5 grid h-32 grid-cols-8 items-end gap-2 px-1 sm:h-36 sm:gap-3 lg:h-28 lg:px-4">
             {weeklyTrend.map((item) => (
               <div key={item.week} className="flex h-full min-w-0 flex-col justify-end">
                 <div className="group relative flex flex-1 items-end">
-                  <div className="w-full rounded-t-xl bg-[#1976ff] transition-all group-hover:bg-[#0d5fd2] dark:bg-[#5b9dff] dark:group-hover:bg-[#86b7ff]" style={{ height: `${Math.max((item.count / highestWeek) * 100, 8)}%` }} aria-label={`${formatWeekLabel(item.week)} 当周投递 ${item.count} 个岗位`} />
-                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded-full bg-neutral-900 px-2 py-1 text-[10px] text-white opacity-0 transition group-hover:opacity-100 dark:bg-white dark:text-neutral-900">{item.count}</span>
+                  <div className="w-full rounded-t-lg bg-[#8794a4] transition-colors group-hover:bg-[#707d8c] dark:bg-[#9ba8b8] dark:group-hover:bg-[#b5bfca]" style={{ height: `${Math.max((item.count / highestWeek) * 100, 8)}%` }} aria-label={`${formatWeekLabel(item.week)} 当周投递 ${item.count} 个岗位`} />
+                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded-full bg-[#3d4145] px-2 py-1 text-[10px] text-white opacity-0 transition group-hover:opacity-100 dark:bg-[#d7dbdd] dark:text-neutral-900">{item.count}</span>
                 </div>
                 <p className="mt-2 truncate text-center text-[10px] text-neutral-400 sm:text-xs">{formatWeekLabel(item.week)}</p>
               </div>
