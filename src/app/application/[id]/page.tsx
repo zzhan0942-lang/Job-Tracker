@@ -53,7 +53,7 @@ export default function ApplicationDetailPage() {
       try {
         const [applicationResponse, progressResponse] =
           await Promise.all([
-            fetch("/api/notion-test"),
+            fetch("/api/applications"),
             fetch("/api/progress"),
           ]);
 
@@ -170,9 +170,6 @@ export default function ApplicationDetailPage() {
 
                       body: JSON.stringify({
                         id: application.id,
-                        progressIds: progress.map(
-                          (item) => item.id
-                        ),
                       }),
                     }
                   );

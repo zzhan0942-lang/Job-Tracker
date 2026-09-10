@@ -1,68 +1,71 @@
-import { Client } from "@notionhq/client";
+import {
+  badRequestResponse,
+  parseProgressDelete,
+  parseProgressInput,
+  readJson,
+} from "@/lib/api-validation";
+import { requireApiAuth } from "@/lib/api-auth";
+import {
+  applicationsDataSourceId,
+  findPageInDataSource,
+  getDataSourcePages,
+  notion,
+  type NotionPage,
+  type NotionProperty,
+  progressDataSourceId,
+  relatedApplicationIds,
+} from "@/lib/notion-data";
 
-const notion = new Client({
-  auth: process.env.NOTION_TOKEN,
-});
+function unavailableResponse() {
+  return Response.json(
+    { success: false, error: "服务暂不可用" },
+    { status: 503 }
+  );
+}
 
-function getText(property: any) {
+function notFoundResponse() {
+  return Response.json(
+    { success: false, error: "记录不存在" },
+    { status: 404 }
+  );
+}
+
+function internalErrorResponse() {
+  return Response.json(
+    { success: false, error: "操作失败，请稍后重试" },
+    { status: 500 }
+  );
+}
+
+function getText(property: NotionProperty | undefined) {
   if (!property) return "";
 
   if (property.type === "title") {
-    return (
-      property.title
-        ?.map((item: any) => item.plain_text)
-        .join("") ?? ""
-    );
+    return property.title?.map((item) => item.plain_text ?? "").join("") ?? "";
   }
 
   if (property.type === "rich_text") {
     return (
-      property.rich_text
-        ?.map((item: any) => item.plain_text)
-        .join("") ?? ""
+      property.rich_text?.map((item) => item.plain_text ?? "").join("") ?? ""
     );
   }
 
   return "";
 }
 
-function getRollupText(property: any) {
+function getRollupText(property: NotionProperty | undefined) {
   if (!property || property.type !== "rollup") return "";
 
-  const rollup = property.rollup;
+  const items = property.rollup?.array;
+  if (property.rollup?.type !== "array" || !items) return "";
 
-  if (rollup?.type === "array") {
-    return rollup.array
-      .map((item: any) => {
-        if (item.type === "title") {
-          return (
-            item.title
-              ?.map((text: any) => text.plain_text)
-              .join("") ?? ""
-          );
-        }
-
-        if (item.type === "rich_text") {
-          return (
-            item.rich_text
-              ?.map((text: any) => text.plain_text)
-              .join("") ?? ""
-          );
-        }
-
-        return "";
-      })
-      .filter(Boolean)
-      .join("、");
-  }
-
-  return "";
+  return items
+    .map((item) => getText(item))
+    .filter(Boolean)
+    .join("、");
 }
-function getApplicationStatus(
-  event: string,
-  result: string
-) {
-  // 终止类结果优先
+
+function getApplicationStatus(event: string, result: string) {
   if (
     event === "淘汰" ||
     event === "主动放弃" ||
@@ -73,32 +76,12 @@ function getApplicationStatus(
     return "已挂";
   }
 
-  if (
-    event === "收到Offer" ||
-    result === "Offer"
-  ) {
-    return "收到offer";
-  }
-
-  if (event === "投递") {
-    return "已投递";
-  }
-
-  if (event === "收到测评") {
-    return "测评中";
-  }
-
-  if (event === "完成测评") {
-    return "已测评";
-  }
-
-  if (event === "收到笔试") {
-    return "笔试中";
-  }
-
-  if (event === "完成笔试") {
-    return "已笔试";
-  }
+  if (event === "收到Offer" || result === "Offer") return "收到offer";
+  if (event === "投递") return "已投递";
+  if (event === "收到测评") return "测评中";
+  if (event === "完成测评") return "已测评";
+  if (event === "收到笔试") return "笔试中";
+  if (event === "完成笔试") return "已笔试";
 
   if (
     event.includes("AI面") ||
@@ -110,466 +93,233 @@ function getApplicationStatus(
     return "面试中";
   }
 
-  // 流程暂停、其他等事件不强行修改当前状态
   return null;
 }
 
-export async function GET() {
+async function verifiedRelatedApplication(
+  progressPage: NotionPage,
+  requestedApplicationId: string | undefined,
+  applicationsDataSource: string
+) {
+  const applicationIds = relatedApplicationIds(progressPage);
+
+  if (applicationIds.length !== 1) return null;
+
+  const applicationId = applicationIds[0];
+  if (requestedApplicationId && requestedApplicationId !== applicationId) {
+    return null;
+  }
+
+  return findPageInDataSource(applicationsDataSource, applicationId);
+}
+
+export async function GET(request: Request) {
+  const authError = requireApiAuth(request);
+  if (authError) return authError;
+
+  const dataSourceId = progressDataSourceId();
+  if (!dataSourceId) return unavailableResponse();
+
   try {
-    const dataSourceId =
-      process.env.NOTION_PROGRESS_DATA_SOURCE_ID;
-
-    if (!dataSourceId) {
-      return Response.json(
-        {
-          success: false,
-          error: "缺少 NOTION_PROGRESS_DATA_SOURCE_ID",
-        },
-        { status: 500 }
-      );
-    }
-
-    let allPages: any[] = [];
-    let cursor: string | undefined = undefined;
-
-    do {
-      const response = await notion.dataSources.query({
-        data_source_id: dataSourceId,
-        page_size: 100,
-        start_cursor: cursor,
-      });
-
-      allPages = [...allPages, ...response.results];
-
-      cursor = response.has_more
-        ? response.next_cursor ?? undefined
-        : undefined;
-    } while (cursor);
-
+    const allPages = await getDataSourcePages(dataSourceId);
     const progress = allPages
-      .filter((page: any) => page.object === "page")
-      .map((page: any) => {
+      .map((page) => {
         const properties = page.properties;
 
         return {
           id: page.id,
-          
-          applicationIds:
-  properties["关联岗位"]?.relation?.map(
-    (item: any) => item.id
-  ) ?? [],
-
+          applicationIds: relatedApplicationIds(page),
           title: getText(properties["记录标题"]),
-
-          company: getRollupText(
-            properties["公司名称"]
-          ),
-
-          role: getRollupText(
-            properties["岗位名称"]
-          ),
-
+          company: getRollupText(properties["公司名称"]),
+          role: getRollupText(properties["岗位名称"]),
           base: getRollupText(properties["Base"]),
-
-          event:
-            properties["事件类型"]?.select?.name ?? "",
-
-          stage:
-            properties["阶段"]?.select?.name ?? "",
-
-          result:
-            properties["结果"]?.select?.name ?? "",
-
-          date:
-            properties["事件日期"]?.date?.start ?? null,
-
-          nextDate:
-            properties["下一步日期"]?.date?.start ?? null,
-
+          event: properties["事件类型"]?.select?.name ?? "",
+          stage: properties["阶段"]?.select?.name ?? "",
+          result: properties["结果"]?.select?.name ?? "",
+          date: properties["事件日期"]?.date?.start ?? null,
+          nextDate: properties["下一步日期"]?.date?.start ?? null,
           note: getText(properties["备注"]),
-
-          link:
-            properties["相关链接"]?.url ?? null,
+          link: properties["相关链接"]?.url ?? null,
         };
       })
-      .filter(
-        (item: any) =>
-          item.title ||
-          item.company ||
-          item.role ||
-          item.event
-      );
+      .filter((item) => item.title || item.company || item.role || item.event)
+      .sort((a, b) => {
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return b.date.localeCompare(a.date);
+      });
 
-    progress.sort((a, b) => {
-      if (!a.date) return 1;
-      if (!b.date) return -1;
-
-      return b.date.localeCompare(a.date);
-    });
-
-    return Response.json({
-      success: true,
-      count: progress.length,
-      progress,
-    });
+    return Response.json({ success: true, count: progress.length, progress });
   } catch (error) {
-    console.error(error);
-
-    return Response.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error",
-      },
-      { status: 500 }
-    );
+    console.error("Failed to load progress", error);
+    return internalErrorResponse();
   }
 }
+
 export async function POST(request: Request) {
+  const authError = requireApiAuth(request);
+  if (authError) return authError;
+
+  const body = await readJson(request);
+  const input = parseProgressInput(body, false);
+  if (!input?.applicationId) return badRequestResponse();
+
+  const applicationsDataSource = applicationsDataSourceId();
+  const progressDataSource = progressDataSourceId();
+  if (!applicationsDataSource || !progressDataSource) return unavailableResponse();
+
   try {
-    const body = await request.json();
-
-    const {
-      applicationId,
-      company,
-      role,
-      event,
-      stage,
-      result,
-      date,
-      nextDate,
-      note,
-      link,
-    } = body;
-
-    if (!applicationId || !event) {
-      return Response.json(
-        {
-          success: false,
-          error: "缺少岗位或事件类型",
-        },
-        { status: 400 }
-      );
-    }
-
-    const dataSourceId =
-      process.env.NOTION_PROGRESS_DATA_SOURCE_ID;
-
-    if (!dataSourceId) {
-      return Response.json(
-        {
-          success: false,
-          error: "缺少进度数据库 ID",
-        },
-        { status: 500 }
-      );
-    }
-
-    const recordTitle =
-      `${company || ""}｜${role || ""}｜${event}`;
+    const application = await findPageInDataSource(
+      applicationsDataSource,
+      input.applicationId
+    );
+    if (!application) return notFoundResponse();
 
     const page = await notion.pages.create({
-      parent: {
-        data_source_id: dataSourceId,
-      },
-
+      parent: { data_source_id: progressDataSource },
       properties: {
         记录标题: {
           title: [
             {
               text: {
-                content: recordTitle,
+                content: `${input.company}｜${input.role}｜${input.event}`,
               },
             },
           ],
         },
-
-        关联岗位: {
-          relation: [
-            {
-              id: applicationId,
-            },
-          ],
-        },
-
-        事件类型: {
-          select: {
-            name: event,
-          },
-        },
-
-        阶段: {
-          select: {
-            name: stage,
-          },
-        },
-
-        事件日期: {
-          date: date
-            ? {
-                start: date,
-              }
-            : null,
-        },
-
-        结果: {
-          select: {
-            name: result,
-          },
-        },
-
+        关联岗位: { relation: [{ id: application.id }] },
+        事件类型: { select: { name: input.event } },
+        阶段: { select: { name: input.stage } },
+        事件日期: { date: input.date ? { start: input.date } : null },
+        结果: { select: { name: input.result } },
         下一步日期: {
-          date: nextDate
-            ? {
-                start: nextDate,
-              }
-            : null,
+          date: input.nextDate ? { start: input.nextDate } : null,
         },
-
         备注: {
-          rich_text: note
-            ? [
-                {
-                  text: {
-                    content: note,
-                  },
-                },
-              ]
-            : [],
+          rich_text: input.note ? [{ text: { content: input.note } }] : [],
         },
-
-        相关链接: {
-          url: link || null,
-        },
+        相关链接: { url: input.link },
       },
     });
-    
-    const nextApplicationStatus =
-  getApplicationStatus(event, result);
 
-if (nextApplicationStatus) {
-  await notion.pages.update({
-    page_id: applicationId,
-
-    properties: {
-      投递状态: {
-        status: {
-          name: nextApplicationStatus,
-        },
-      },
-    },
-  });
-}
-
-    return Response.json({
-      success: true,
-      id: page.id,
-    });
-  } catch (error) {
-    console.error("新增进展失败：", error);
-
-    return Response.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
-}
-export async function PATCH(request: Request) {
-  try {
-    const body = await request.json();
-
-    const {
-      id,
-      applicationId,
-      company,
-      role,
-      event,
-      stage,
-      result,
-      date,
-      nextDate,
-      note,
-      link,
-      syncStatus,
-    } = body;
-
-    if (!id) {
-      return Response.json(
-        { success: false, error: "缺少进展 ID" },
-        { status: 400 }
-      );
+    const nextApplicationStatus = getApplicationStatus(input.event, input.result);
+    if (nextApplicationStatus) {
+      await notion.pages.update({
+        page_id: application.id,
+        properties: { 投递状态: { status: { name: nextApplicationStatus } } },
+      });
     }
 
-    await notion.pages.update({
-      page_id: id,
+    return Response.json({ success: true, id: page.id });
+  } catch (error) {
+    console.error("Failed to create progress", error);
+    return internalErrorResponse();
+  }
+}
 
+export async function PATCH(request: Request) {
+  const authError = requireApiAuth(request);
+  if (authError) return authError;
+
+  const body = await readJson(request);
+  const input = parseProgressInput(body, true);
+  if (!input?.id) return badRequestResponse();
+
+  const applicationsDataSource = applicationsDataSourceId();
+  const progressDataSource = progressDataSourceId();
+  if (!applicationsDataSource || !progressDataSource) return unavailableResponse();
+
+  try {
+    const progressPage = await findPageInDataSource(progressDataSource, input.id);
+    if (!progressPage) return notFoundResponse();
+
+    const application = await verifiedRelatedApplication(
+      progressPage,
+      input.applicationId,
+      applicationsDataSource
+    );
+    if (!application) return badRequestResponse();
+
+    await notion.pages.update({
+      page_id: progressPage.id,
       properties: {
         记录标题: {
           title: [
             {
               text: {
-                content: `${company}｜${role}｜${event}`,
+                content: `${input.company}｜${input.role}｜${input.event}`,
               },
             },
           ],
         },
-
-        事件类型: {
-          select: {
-            name: event,
-          },
-        },
-
-        阶段: {
-          select: {
-            name: stage,
-          },
-        },
-
-        结果: {
-          select: {
-            name: result,
-          },
-        },
-
-        事件日期: {
-          date: date
-            ? {
-                start: date,
-              }
-            : null,
-        },
-
+        事件类型: { select: { name: input.event } },
+        阶段: { select: { name: input.stage } },
+        结果: { select: { name: input.result } },
+        事件日期: { date: input.date ? { start: input.date } : null },
         下一步日期: {
-          date: nextDate
-            ? {
-                start: nextDate,
-              }
-            : null,
+          date: input.nextDate ? { start: input.nextDate } : null,
         },
-
         备注: {
-          rich_text: note
-            ? [
-                {
-                  text: {
-                    content: note,
-                  },
-                },
-              ]
-            : [],
+          rich_text: input.note ? [{ text: { content: input.note } }] : [],
         },
-
-        相关链接: {
-          url: link || null,
-        },
+        相关链接: { url: input.link },
       },
     });
 
-    // 如果编辑的是最新进展，同步第一张表
-    if (syncStatus && applicationId) {
-      const nextStatus =
-        getApplicationStatus(event, result);
-
+    if (input.syncStatus) {
+      const nextStatus = getApplicationStatus(input.event, input.result);
       if (nextStatus) {
         await notion.pages.update({
-          page_id: applicationId,
-
-          properties: {
-            投递状态: {
-              status: {
-                name: nextStatus,
-              },
-            },
-          },
+          page_id: application.id,
+          properties: { 投递状态: { status: { name: nextStatus } } },
         });
       }
     }
 
-    return Response.json({
-      success: true,
-    });
+    return Response.json({ success: true });
   } catch (error) {
-    console.error("编辑进展失败：", error);
-
-    return Response.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "编辑进展失败",
-      },
-      { status: 500 }
-    );
+    console.error("Failed to update progress", error);
+    return internalErrorResponse();
   }
 }
 
 export async function DELETE(request: Request) {
+  const authError = requireApiAuth(request);
+  if (authError) return authError;
+
+  const body = await readJson(request);
+  const input = parseProgressDelete(body);
+  if (!input) return badRequestResponse();
+
+  const applicationsDataSource = applicationsDataSourceId();
+  const progressDataSource = progressDataSourceId();
+  if (!applicationsDataSource || !progressDataSource) return unavailableResponse();
+
   try {
-    const body = await request.json();
+    const progressPage = await findPageInDataSource(progressDataSource, input.id);
+    if (!progressPage) return notFoundResponse();
 
-    const {
-      id,
-      applicationId,
-      syncStatus,
-      fallbackStatus,
-    } = body;
+    const application = await verifiedRelatedApplication(
+      progressPage,
+      input.applicationId,
+      applicationsDataSource
+    );
+    if (!application) return badRequestResponse();
 
-    if (!id) {
-      return Response.json(
-        { success: false, error: "缺少进展 ID" },
-        { status: 400 }
-      );
-    }
+    await notion.pages.update({ page_id: progressPage.id, in_trash: true });
 
-    await notion.pages.update({
-      page_id: id,
-      in_trash: true,
-    });
-
-    // 如果删除的是最新进展，让第一张表退回上一阶段
-    if (
-      syncStatus &&
-      applicationId &&
-      fallbackStatus
-    ) {
+    if (input.syncStatus && input.fallbackStatus) {
       await notion.pages.update({
-        page_id: applicationId,
-
+        page_id: application.id,
         properties: {
-          投递状态: {
-            status: {
-              name: fallbackStatus,
-            },
-          },
+          投递状态: { status: { name: input.fallbackStatus } },
         },
       });
     }
 
-    return Response.json({
-      success: true,
-    });
+    return Response.json({ success: true });
   } catch (error) {
-    console.error("删除进展失败：", error);
-
-    return Response.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "删除进展失败",
-      },
-      { status: 500 }
-    );
+    console.error("Failed to delete progress", error);
+    return internalErrorResponse();
   }
 }

@@ -1,330 +1,221 @@
-import { Client } from "@notionhq/client";
+import {
+  badRequestResponse,
+  parseApplicationDelete,
+  parseApplicationInput,
+  readJson,
+} from "@/lib/api-validation";
+import { requireApiAuth } from "@/lib/api-auth";
+import {
+  applicationsDataSourceId,
+  findPageInDataSource,
+  getDataSourcePages,
+  notion,
+  type NotionProperty,
+  progressDataSourceId,
+  relatedProgressPages,
+} from "@/lib/notion-data";
 
-const notion = new Client({
-  auth: process.env.NOTION_TOKEN,
-});
+function unavailableResponse() {
+  return Response.json(
+    { success: false, error: "服务暂不可用" },
+    { status: 503 }
+  );
+}
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
+function notFoundResponse() {
+  return Response.json(
+    { success: false, error: "记录不存在" },
+    { status: 404 }
+  );
+}
 
-    const {
-      company,
-      role,
-      base,
-      status,
-      date,
-      note,
-      url,
-    } = body;
+function internalErrorResponse() {
+  return Response.json(
+    { success: false, error: "操作失败，请稍后重试" },
+    { status: 500 }
+  );
+}
 
-    if (!company || !role) {
-      return Response.json(
-        {
-          success: false,
-          error: "公司名称和岗位名称不能为空",
-        },
-        { status: 400 }
-      );
-    }
+function getText(property: NotionProperty | undefined) {
+  if (!property) return "";
 
-    const dataSourceId =
-      process.env.NOTION_APPLICATIONS_DATA_SOURCE_ID;
+  if (property.type === "title") {
+    return property.title?.map((item) => item.plain_text ?? "").join("") ?? "";
+  }
 
-    if (!dataSourceId) {
-      return Response.json(
-        {
-          success: false,
-          error:
-            "缺少 NOTION_APPLICATIONS_DATA_SOURCE_ID",
-        },
-        { status: 500 }
-      );
-    }
-
-    const title = `${company}｜${role}`;
-
-    const page = await notion.pages.create({
-      parent: {
-        data_source_id: dataSourceId,
-      },
-
-      properties: {
-        岗位标识: {
-          title: [
-            {
-              text: {
-                content: title,
-              },
-            },
-          ],
-        },
-
-        公司名称: {
-          rich_text: [
-            {
-              text: {
-                content: company,
-              },
-            },
-          ],
-        },
-
-        岗位名称: {
-          rich_text: [
-            {
-              text: {
-                content: role,
-              },
-            },
-          ],
-        },
-
-        Base: {
-          rich_text: base
-            ? [
-                {
-                  text: {
-                    content: base,
-                  },
-                },
-              ]
-            : [],
-        },
-
-        投递状态: {
-          status: {
-            name: status || "已投递",
-          },
-        },
-
-        日期: {
-          date: date
-            ? {
-                start: date,
-              }
-            : null,
-        },
-
-        备注: {
-          rich_text: note
-            ? [
-                {
-                  text: {
-                    content: note,
-                  },
-                },
-              ]
-            : [],
-        },
-
-        官网链接: {
-          url: url || null,
-        },
-      },
-    });
-
-    return Response.json({
-      success: true,
-      id: page.id,
-    });
-  } catch (error) {
-    console.error("新增岗位失败：", error);
-
-    return Response.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error",
-      },
-      { status: 500 }
+  if (property.type === "rich_text") {
+    return (
+      property.rich_text?.map((item) => item.plain_text ?? "").join("") ?? ""
     );
   }
+
+  return "";
 }
-export async function PATCH(request: Request) {
+
+export async function GET(request: Request) {
+  const authError = requireApiAuth(request);
+  if (authError) return authError;
+
+  const dataSourceId = applicationsDataSourceId();
+  if (!dataSourceId) return unavailableResponse();
+
   try {
-    const body = await request.json();
+    const pages = await getDataSourcePages(dataSourceId);
+    const applications = pages
+      .map((page) => {
+        const properties = page.properties;
 
-    const {
-      id,
-      company,
-      role,
-      base,
-      status,
-      date,
-      note,
-      url,
-    } = body;
-
-    if (!id) {
-      return Response.json(
-        {
-          success: false,
-          error: "缺少岗位 ID",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!company || !role) {
-      return Response.json(
-        {
-          success: false,
-          error: "公司名称和岗位名称不能为空",
-        },
-        { status: 400 }
-      );
-    }
-
-    const title = `${company}｜${role}`;
-
-    await notion.pages.update({
-      page_id: id,
-
-      properties: {
-        岗位标识: {
-          title: [
-            {
-              text: {
-                content: title,
-              },
-            },
-          ],
-        },
-
-        公司名称: {
-          rich_text: [
-            {
-              text: {
-                content: company,
-              },
-            },
-          ],
-        },
-
-        岗位名称: {
-          rich_text: [
-            {
-              text: {
-                content: role,
-              },
-            },
-          ],
-        },
-
-        Base: {
-          rich_text: base
-            ? [
-                {
-                  text: {
-                    content: base,
-                  },
-                },
-              ]
-            : [],
-        },
-
-        投递状态: {
-          status: {
-            name: status,
-          },
-        },
-
-        日期: {
-          date: date
-            ? {
-                start: date,
-              }
-            : null,
-        },
-
-        备注: {
-          rich_text: note
-            ? [
-                {
-                  text: {
-                    content: note,
-                  },
-                },
-              ]
-            : [],
-        },
-
-        官网链接: {
-          url: url || null,
-        },
-      },
-    });
+        return {
+          id: page.id,
+          company: getText(properties["公司名称"]),
+          role: getText(properties["岗位名称"]),
+          title: getText(properties["岗位标识"]),
+          status: properties["投递状态"]?.status?.name ?? "",
+          base: getText(properties["Base"]),
+          date: properties["日期"]?.date?.start ?? null,
+        };
+      })
+      .filter((item) => item.company || item.role || item.title);
 
     return Response.json({
       success: true,
+      count: applications.length,
+      applications,
     });
   } catch (error) {
-    console.error("修改岗位失败：", error);
+    console.error("Failed to load applications", error);
+    return internalErrorResponse();
+  }
+}
 
-    return Response.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "修改岗位失败",
+export async function POST(request: Request) {
+  const authError = requireApiAuth(request);
+  if (authError) return authError;
+
+  const body = await readJson(request);
+  const input = parseApplicationInput(body, false);
+  if (!input) return badRequestResponse();
+
+  const dataSourceId = applicationsDataSourceId();
+  if (!dataSourceId) return unavailableResponse();
+
+  try {
+    const page = await notion.pages.create({
+      parent: { data_source_id: dataSourceId },
+      properties: {
+        岗位标识: {
+          title: [{ text: { content: `${input.company}｜${input.role}` } }],
+        },
+        公司名称: {
+          rich_text: [{ text: { content: input.company } }],
+        },
+        岗位名称: {
+          rich_text: [{ text: { content: input.role } }],
+        },
+        Base: {
+          rich_text: input.base ? [{ text: { content: input.base } }] : [],
+        },
+        投递状态: { status: { name: input.status } },
+        日期: { date: input.date ? { start: input.date } : null },
+        备注: {
+          rich_text: input.note ? [{ text: { content: input.note } }] : [],
+        },
+        官网链接: { url: input.url },
       },
-      { status: 500 }
-    );
+    });
+
+    return Response.json({ success: true, id: page.id });
+  } catch (error) {
+    console.error("Failed to create application", error);
+    return internalErrorResponse();
+  }
+}
+
+export async function PATCH(request: Request) {
+  const authError = requireApiAuth(request);
+  if (authError) return authError;
+
+  const body = await readJson(request);
+  const input = parseApplicationInput(body, true);
+  if (!input?.id) return badRequestResponse();
+
+  const dataSourceId = applicationsDataSourceId();
+  if (!dataSourceId) return unavailableResponse();
+
+  try {
+    const existingPage = await findPageInDataSource(dataSourceId, input.id);
+    if (!existingPage) return notFoundResponse();
+
+    await notion.pages.update({
+      page_id: existingPage.id,
+      properties: {
+        岗位标识: {
+          title: [{ text: { content: `${input.company}｜${input.role}` } }],
+        },
+        公司名称: {
+          rich_text: [{ text: { content: input.company } }],
+        },
+        岗位名称: {
+          rich_text: [{ text: { content: input.role } }],
+        },
+        Base: {
+          rich_text: input.base ? [{ text: { content: input.base } }] : [],
+        },
+        投递状态: { status: { name: input.status } },
+        日期: { date: input.date ? { start: input.date } : null },
+        备注: {
+          rich_text: input.note ? [{ text: { content: input.note } }] : [],
+        },
+        官网链接: { url: input.url },
+      },
+    });
+
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error("Failed to update application", error);
+    return internalErrorResponse();
   }
 }
 
 export async function DELETE(request: Request) {
+  const authError = requireApiAuth(request);
+  if (authError) return authError;
+
+  const body = await readJson(request);
+  const input = parseApplicationDelete(body);
+  if (!input) return badRequestResponse();
+
+  const applicationsDataSource = applicationsDataSourceId();
+  const progressDataSource = progressDataSourceId();
+  if (!applicationsDataSource || !progressDataSource) return unavailableResponse();
+
   try {
-    const body = await request.json();
+    const application = await findPageInDataSource(
+      applicationsDataSource,
+      input.id
+    );
+    if (!application) return notFoundResponse();
 
-    const {
-      id,
-      progressIds = [],
-    } = body;
-
-    if (!id) {
+    const progressPages = await relatedProgressPages(
+      progressDataSource,
+      application.id
+    );
+    if (!progressPages) {
       return Response.json(
-        {
-          success: false,
-          error: "缺少岗位 ID",
-        },
+        { success: false, error: "关联记录数量超限" },
         { status: 400 }
       );
     }
 
-    // 先删除这个岗位对应的历史进展
-    for (const progressId of progressIds) {
-      await notion.pages.update({
-        page_id: progressId,
-        in_trash: true,
-      });
+    for (const progressPage of progressPages) {
+      await notion.pages.update({ page_id: progressPage.id, in_trash: true });
     }
 
-    // 再删除岗位本身
-    await notion.pages.update({
-      page_id: id,
-      in_trash: true,
-    });
+    await notion.pages.update({ page_id: application.id, in_trash: true });
 
-    return Response.json({
-      success: true,
-    });
+    return Response.json({ success: true });
   } catch (error) {
-    console.error("删除岗位失败：", error);
-
-    return Response.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "删除岗位失败",
-      },
-      { status: 500 }
-    );
+    console.error("Failed to delete application", error);
+    return internalErrorResponse();
   }
 }

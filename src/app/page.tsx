@@ -106,7 +106,7 @@ export default function Home() {
     async function loadData() {
       try {
         const [applicationsResponse, progressResponse] = await Promise.all([
-          fetch("/api/notion-test"),
+          fetch("/api/applications"),
           fetch("/api/progress"),
         ]);
 
