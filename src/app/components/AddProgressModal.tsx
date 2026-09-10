@@ -66,6 +66,10 @@ function getResult(event: string) {
   if (event === "收到Offer") return "Offer";
   if (event === "流程暂停") return "待定";
 
+  if (event.startsWith("收到") || event === "投递") {
+    return "流程中";
+  }
+
   return "待定";
 }
 
@@ -193,8 +197,8 @@ export default function AddProgressModal({
                   onChange={(e) =>
                     handleEventChange(e.target.value)
                   }
-                  className="w-full min-w-0 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none transition focus:border-neutral-400 sm:text-sm"
-                >
+                    className="w-full min-w-0 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none transition focus:border-neutral-400 sm:text-sm"
+                  >
                   {eventOptions.map((item) => (
                     <option
                       key={item}
@@ -232,8 +236,9 @@ export default function AddProgressModal({
                     onChange={(e) =>
                       setResult(e.target.value)
                     }
-                    className="w-full min-w-0 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none transition focus:border-neutral-400 sm:text-sm"
-                  >
+                  className="w-full min-w-0 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none transition focus:border-neutral-400 sm:text-sm"
+                >
+                    <option>流程中</option>
                     <option>待定</option>
                     <option>通过</option>
                     <option>淘汰</option>
