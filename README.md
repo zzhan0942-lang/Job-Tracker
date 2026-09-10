@@ -42,10 +42,30 @@ npm run dev
 
 Open `http://localhost:3000`. The browser will request your `JOB_TRACKER_AUTH_USERNAME` and `JOB_TRACKER_AUTH_PASSWORD` before the dashboard or API routes are available.
 
-## Connect your own Notion workspace
+## Notion Template (recommended)
+
+Duplicate the ready-to-use database template into your own Notion workspace:
+
+[Duplicate the Job Tracker Notion Template](https://rapid-acrylic-365.notion.site/Job-Tracker-Notion-Template-3d727236ee1381e9b4f2d98f2be1ebe0?source=copy_link)
+
+The template contains no author's personal job-application data and no Notion token. Every user must create and use their own Notion integration.
+
+1. Duplicate the Notion template into your own workspace.
+2. Create your own Notion Integration.
+3. Grant the integration access only to the two duplicated databases.
+4. Copy the Applications and Progress Data Source IDs.
+5. Copy `.env.example` to `.env.local`.
+6. Fill in your own Notion token, data source IDs, and Basic Auth credentials.
+7. Run `npm install` and `npm run dev`.
+
+Do not commit `.env.local` to GitHub.
+
+## Manual Setup and Database Schema Reference
+
+Prefer the template above for a quick start. Use this section if you want to create the Notion data sources yourself or verify their required schema.
 
 1. Create a Notion integration at [Notion integrations](https://www.notion.so/my-integrations) and copy its internal integration token into `NOTION_TOKEN`.
-2. Create the **Applications** and **Progress** data sources described below, or duplicate your own templates with exactly the same property names and types.
+2. Create the **Applications** and **Progress** data sources described below with exactly the same property names and types.
 3. Add a relation between the two data sources: `Progress.关联岗位` points to Applications, and the reciprocal Applications property is named `进度记录`.
 4. Share both data sources with the integration from step 1.
 5. Copy each data source ID into the matching variable in `.env.local`.
