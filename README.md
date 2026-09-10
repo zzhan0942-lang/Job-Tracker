@@ -7,6 +7,20 @@ A private, single-user job-search dashboard built with Next.js and Notion. Track
 This repository does not include any Notion credentials or personal job application data.
 Each deployment uses the owner's own Notion integration and databases.
 
+## 🖥️ Preview
+
+### Dashboard and analytics
+
+![Job Tracker dashboard and analytics](./docs/images/job-tracker-dashboard-demo.png)
+
+> ⚠️ Demo data notice: All company names, job titles, application statuses, dates, and statistics shown in these screenshots are fictional AI-generated demo data created solely to demonstrate the Job Tracker interface and features. They do not represent real job applications.
+
+### Activity and applications
+
+![Job Tracker activity and applications](./docs/images/job-tracker-applications-demo.png)
+
+> The companies and roles shown above are also fictional AI-generated demo data.
+
 ## Features
 
 - Create, edit, and delete job applications.
