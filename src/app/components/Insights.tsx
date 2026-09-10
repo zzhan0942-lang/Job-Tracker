@@ -3,6 +3,7 @@ import { useState } from "react";
 type Application = {
   id: string;
   status: string;
+  base: string;
   date: string | null;
 };
 
@@ -73,6 +74,17 @@ function getWeekStart(date: string) {
 function formatWeekLabel(date: string) {
   const parsed = new Date(`${date}T00:00:00`);
   return `${parsed.getMonth() + 1}/${parsed.getDate()}`;
+}
+
+function splitBases(base: string) {
+  return base
+    .split(/[，,、/／|]/)
+    .map((item) => item.replace(/\s+/g, " ").trim())
+    .filter(
+      (item) =>
+        item &&
+        !["—", "-", "不限", "全国", "待定"].includes(item)
+    );
 }
 
 export default function Insights({ applications, progress, loading }: Props) {
@@ -151,7 +163,29 @@ export default function Insights({ applications, progress, loading }: Props) {
     .slice(-8)
     .map(([week, count]) => ({ week, count }));
 
+  const baseCounts = applications.reduce<Record<string, number>>(
+    (counts, application) => {
+      splitBases(application.base || "").forEach((base) => {
+        counts[base] = (counts[base] || 0) + 1;
+      });
+      return counts;
+    },
+    {}
+  );
+
+  const baseDistribution = Object.entries(baseCounts)
+    .map(([base, count]) => ({ base, count }))
+    .sort(
+      (first, second) =>
+        second.count - first.count || first.base.localeCompare(second.base, "zh-CN")
+    )
+    .slice(0, 8);
+
   const highestWeek = Math.max(...weeklyTrend.map((item) => item.count), 1);
+  const highestBaseCount = Math.max(
+    ...baseDistribution.map((item) => item.count),
+    1
+  );
   const displayedWeek = hoveredWeek || activeWeek;
   const displayedWeekData = weeklyTrend.find(
     (item) => item.week === displayedWeek
@@ -243,60 +277,102 @@ export default function Insights({ applications, progress, loading }: Props) {
         </section>
       </div>
 
-      <section className="mt-4 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[28px] sm:p-6 dark:border-neutral-800 dark:bg-[#171719]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium tracking-[0.14em] text-neutral-400">APPLICATION RHYTHM</p>
-            <h3 className="mt-1 text-lg font-semibold">每周投递趋势</h3>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <section className="rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[28px] sm:p-6 dark:border-neutral-800 dark:bg-[#171719]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium tracking-[0.14em] text-neutral-400">APPLICATION RHYTHM</p>
+              <h3 className="mt-1 text-lg font-semibold">每周投递趋势</h3>
+            </div>
+            {!loading && weeklyTrend.length > 0 && (
+              <span className="text-right text-xs leading-5 text-neutral-400">最近 {weeklyTrend.length} 周<br />峰值 {highestWeek} 个岗位</span>
+            )}
           </div>
-          {!loading && weeklyTrend.length > 0 && (
-            <span className="text-right text-xs leading-5 text-neutral-400">最近 {weeklyTrend.length} 周<br />峰值 {highestWeek} 个岗位</span>
-          )}
-        </div>
 
-        {loading ? (
-          <div className="mt-5 grid h-28 grid-cols-8 items-end gap-2 px-1 sm:h-32 sm:gap-3 lg:h-28 lg:px-4">
-            {[36, 62, 48, 84, 56, 70, 42, 66].map((height, index) => <div key={index} className="animate-pulse rounded-t-xl bg-neutral-100 dark:bg-neutral-800" style={{ height: `${height}%` }} />)}
+          {loading ? (
+            <div className="mt-5 grid h-28 grid-cols-8 items-end gap-2 px-1 sm:h-32 sm:gap-3">
+              {[36, 62, 48, 84, 56, 70, 42, 66].map((height, index) => <div key={index} className="animate-pulse rounded-t-xl bg-neutral-100 dark:bg-neutral-800" style={{ height: `${height}%` }} />)}
+            </div>
+          ) : weeklyTrend.length === 0 ? (
+            <p className="py-14 text-center text-sm text-neutral-400">填写投递日期后，这里会显示每周节奏。</p>
+          ) : (
+            <>
+              <div className="mt-5 grid h-32 grid-cols-8 items-end gap-2 px-1 sm:h-36 sm:gap-3 lg:h-28">
+                {weeklyTrend.map((item) => (
+                  <div key={item.week} className="flex h-full min-w-0 flex-col justify-end">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveWeek((current) =>
+                          current === item.week ? null : item.week
+                        )
+                      }
+                      onMouseEnter={() => setHoveredWeek(item.week)}
+                      onMouseLeave={() => setHoveredWeek(null)}
+                      onFocus={() => setHoveredWeek(item.week)}
+                      onBlur={() => setHoveredWeek(null)}
+                      aria-pressed={activeWeek === item.week}
+                      aria-label={`${formatWeekLabel(item.week)} 当周投递 ${item.count} 个岗位`}
+                      title={`${formatWeekLabel(item.week)} · ${item.count} 个岗位`}
+                      className="group relative flex flex-1 items-end rounded-t-lg outline-none focus-visible:ring-2 focus-visible:ring-[#8794a4] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#171719]"
+                    >
+                      <div className="w-full rounded-t-lg bg-[#8794a4] transition-colors group-hover:bg-[#707d8c] dark:bg-[#9ba8b8] dark:group-hover:bg-[#b5bfca]" style={{ height: `${Math.max((item.count / highestWeek) * 100, 8)}%` }} />
+                      <span className={`pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded-full bg-[#3d4145] px-2 py-1 text-[10px] text-white transition dark:bg-[#d7dbdd] dark:text-neutral-900 ${displayedWeek === item.week ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>{item.count}</span>
+                    </button>
+                    <p className="mt-2 truncate text-center text-[10px] text-neutral-400 sm:text-xs">{formatWeekLabel(item.week)}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-4 min-h-5 text-center text-xs text-neutral-400" aria-live="polite">
+                {displayedWeekData
+                  ? `${formatWeekLabel(displayedWeekData.week)} 当周投递 ${displayedWeekData.count} 个岗位`
+                  : "轻点柱状图查看具体投递数量"}
+              </p>
+            </>
+          )}
+        </section>
+
+        <section className="rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[28px] sm:p-6 dark:border-neutral-800 dark:bg-[#171719]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium tracking-[0.14em] text-neutral-400">BASE DISTRIBUTION</p>
+              <h3 className="mt-1 text-lg font-semibold">Base 分布</h3>
+            </div>
+            <span className="rounded-full bg-[#f5f5f3] px-3 py-1 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-300">Top 8</span>
           </div>
-        ) : weeklyTrend.length === 0 ? (
-          <p className="py-14 text-center text-sm text-neutral-400">填写投递日期后，这里会显示每周节奏。</p>
-        ) : (
-          <>
-            <div className="mt-5 grid h-32 grid-cols-8 items-end gap-2 px-1 sm:h-36 sm:gap-3 lg:h-28 lg:px-4">
-              {weeklyTrend.map((item) => (
-                <div key={item.week} className="flex h-full min-w-0 flex-col justify-end">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActiveWeek((current) =>
-                        current === item.week ? null : item.week
-                      )
-                    }
-                    onMouseEnter={() => setHoveredWeek(item.week)}
-                    onMouseLeave={() => setHoveredWeek(null)}
-                    onFocus={() => setHoveredWeek(item.week)}
-                    onBlur={() => setHoveredWeek(null)}
-                    aria-pressed={activeWeek === item.week}
-                    aria-label={`${formatWeekLabel(item.week)} 当周投递 ${item.count} 个岗位`}
-                    title={`${formatWeekLabel(item.week)} · ${item.count} 个岗位`}
-                    className="group relative flex flex-1 items-end rounded-t-lg outline-none focus-visible:ring-2 focus-visible:ring-[#8794a4] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#171719]"
-                  >
-                    <div className="w-full rounded-t-lg bg-[#8794a4] transition-colors group-hover:bg-[#707d8c] dark:bg-[#9ba8b8] dark:group-hover:bg-[#b5bfca]" style={{ height: `${Math.max((item.count / highestWeek) * 100, 8)}%` }} aria-label={`${formatWeekLabel(item.week)} 当周投递 ${item.count} 个岗位`} />
-                    <span className={`pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded-full bg-[#3d4145] px-2 py-1 text-[10px] text-white transition dark:bg-[#d7dbdd] dark:text-neutral-900 ${displayedWeek === item.week ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>{item.count}</span>
-                  </button>
-                  <p className="mt-2 truncate text-center text-[10px] text-neutral-400 sm:text-xs">{formatWeekLabel(item.week)}</p>
+
+          {loading ? (
+            <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-4">
+              {Array.from({ length: 8 }, (_, index) => (
+                <div key={index} className="h-10 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+              ))}
+            </div>
+          ) : baseDistribution.length === 0 ? (
+            <p className="py-14 text-center text-sm text-neutral-400">填写岗位 Base 后，这里会显示城市分布。</p>
+          ) : (
+            <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-4">
+              {baseDistribution.map((item, index) => (
+                <div key={item.base} className="min-w-0">
+                  <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
+                    <span className="min-w-0 truncate text-neutral-600 dark:text-neutral-300">
+                      <span className="mr-1.5 text-neutral-400">{String(index + 1).padStart(2, "0")}</span>
+                      {item.base}
+                    </span>
+                    <span className="shrink-0 font-medium">{item.count}</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[#eef0ef] dark:bg-neutral-800">
+                    <div
+                      className="h-full rounded-full bg-[#8ca29a] dark:bg-[#a6b9b1]"
+                      style={{ width: `${Math.max((item.count / highestBaseCount) * 100, 9)}%` }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
-
-            <p className="mt-4 min-h-5 text-center text-xs text-neutral-400" aria-live="polite">
-              {displayedWeekData
-                ? `${formatWeekLabel(displayedWeekData.week)} 当周投递 ${displayedWeekData.count} 个岗位`
-                : "轻点柱状图查看具体投递数量"}
-            </p>
-          </>
-        )}
-      </section>
+          )}
+        </section>
+      </div>
     </section>
   );
 }
