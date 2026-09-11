@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddApplicationModal from "./components/AddApplicationModal";
+import AddProgressModal from "./components/AddProgressModal";
 import ConversionInsights from "./components/ConversionInsights";
 import ExpandableProcess from "./components/ExpandableProcess";
 import Insights from "./components/Insights";
@@ -102,33 +103,33 @@ export default function Home() {
     return () => mediaQuery.removeEventListener("change", handleSystemChange);
   }, [themeMode, themeReady]);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [applicationsResponse, progressResponse] = await Promise.all([
-          fetch("/api/applications"),
-          fetch("/api/progress"),
-        ]);
+  const loadData = useCallback(async () => {
+    try {
+      const [applicationsResponse, progressResponse] = await Promise.all([
+        fetch("/api/applications"),
+        fetch("/api/progress"),
+      ]);
 
-        const applicationsData = await applicationsResponse.json();
-        const progressData = await progressResponse.json();
+      const applicationsData = await applicationsResponse.json();
+      const progressData = await progressResponse.json();
 
-        if (applicationsData.success) {
-          setApplications(applicationsData.applications);
-        }
-
-        if (progressData.success) {
-          setProgress(progressData.progress);
-        }
-      } catch (error) {
-        console.error("读取 Notion 数据失败：", error);
-      } finally {
-        setLoading(false);
+      if (applicationsData.success) {
+        setApplications(applicationsData.applications);
       }
-    }
 
-    loadData();
+      if (progressData.success) {
+        setProgress(progressData.progress);
+      }
+    } catch (error) {
+      console.error("读取 Notion 数据失败：", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const sortedProgress = useMemo(() => {
     return [...progress].sort((a, b) => {
@@ -594,10 +595,11 @@ export default function Home() {
               {paginatedProgress.map((item) => {
                 const applicationId = item.applicationIds?.[0];
 
-                const applicationDate =
-                  applications.find(
-                    (application) => application.id === applicationId
-                  )?.date ?? null;
+                const application = applications.find(
+                  (candidate) => candidate.id === applicationId
+                );
+
+                const applicationDate = application?.date ?? null;
 
                 return (
                   <ExpandableProcess
@@ -605,6 +607,8 @@ export default function Home() {
                     item={item}
                     allProgress={progress}
                     applicationDate={applicationDate}
+                    application={application}
+                    onProgressCreated={loadData}
                   />
                 );
               })}
@@ -708,12 +712,15 @@ export default function Home() {
             {/* 手机端：卡片 */}
             <div className="divide-y divide-neutral-100 dark:divide-neutral-800 md:hidden">
               {paginatedApplications.map((item) => (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={() => router.push(`/application/${item.id}`)}
-                  className="block w-full min-w-0 px-4 py-4 text-left transition active:bg-neutral-50 dark:active:bg-neutral-800"
+                  className="min-w-0 px-4 py-4"
                 >
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/application/${item.id}`)}
+                    className="block w-full min-w-0 text-left transition active:bg-neutral-50 dark:active:bg-neutral-800"
+                  >
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">
@@ -739,7 +746,18 @@ export default function Home() {
                       {item.date || "—"}
                     </span>
                   </div>
-                </button>
+                  </button>
+
+                  <div className="mt-3">
+                    <AddProgressModal
+                      applicationId={item.id}
+                      company={item.company}
+                      role={item.role}
+                      variant="secondary"
+                      onSuccess={loadData}
+                    />
+                  </div>
+                </div>
               ))}
 
               {paginatedApplications.length === 0 && (
@@ -751,13 +769,14 @@ export default function Home() {
 
             {/* 桌面端：表格 */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[760px] text-left">
+              <table className="w-full min-w-[860px] text-left">
                 <thead>
                   <tr className="border-y border-neutral-100 text-xs text-neutral-400 dark:border-neutral-800">
                     <th className="w-[22%] px-6 py-3 font-medium">公司</th>
                     <th className="w-[40%] px-4 py-3 font-medium">岗位</th>
                     <th className="w-[18%] px-4 py-3 font-medium">状态</th>
-                    <th className="w-[20%] px-6 py-3 font-medium">Base</th>
+                    <th className="w-[14%] px-4 py-3 font-medium">Base</th>
+                    <th className="w-[16%] px-6 py-3 font-medium">操作</th>
                   </tr>
                 </thead>
 
@@ -780,8 +799,20 @@ export default function Home() {
                         <StatusBadge status={item.status} />
                       </td>
 
-                      <td className="px-6 py-5 text-sm text-neutral-400">
+                      <td className="px-4 py-5 text-sm text-neutral-400">
                         {item.base || "—"}
+                      </td>
+
+                      <td className="px-6 py-3">
+                        <div onClick={(event) => event.stopPropagation()}>
+                          <AddProgressModal
+                            applicationId={item.id}
+                            company={item.company}
+                            role={item.role}
+                            variant="secondary"
+                            onSuccess={loadData}
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}

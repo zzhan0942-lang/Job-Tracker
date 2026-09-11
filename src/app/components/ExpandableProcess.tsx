@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import AddProgressModal from "./AddProgressModal";
 
 type ProgressEvent = {
   id: string;
@@ -23,6 +24,12 @@ type Props = {
   item: ProgressEvent;
   allProgress: ProgressEvent[];
   applicationDate: string | null;
+  application?: {
+    id: string;
+    company: string;
+    role: string;
+  };
+  onProgressCreated?: () => void | Promise<void>;
 };
 
 const steps = [
@@ -44,12 +51,15 @@ export default function ExpandableProcess({
   item,
   allProgress,
   applicationDate,
+  application,
+  onProgressCreated,
 }: Props) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
-  const applicationId =
-    item.applicationIds?.[0];
+  const applicationId = application?.id ?? item.applicationIds?.[0];
+  const company = application?.company ?? item.company;
+  const role = application?.role ?? item.role;
 
   const relatedEvents = allProgress.filter(
     (event) =>
@@ -411,7 +421,7 @@ const failed =
 )}
 
           {/* 底部 */}
-          <div className="mt-4 flex items-center justify-between border-t border-neutral-200 pt-4 dark:border-neutral-700">
+          <div className="mt-4 flex flex-col gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-xs text-neutral-500">
               {isFailed ? (
                 <span className="text-red-500">
@@ -427,21 +437,33 @@ const failed =
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              {applicationId && (
+                <AddProgressModal
+                  applicationId={applicationId}
+                  company={company}
+                  role={role}
+                  variant="secondary"
+                  onSuccess={onProgressCreated}
+                />
+              )}
 
-                if (applicationId) {
-                  router.push(
-                    `/application/${applicationId}`
-                  );
-                }
-              }}
-                    className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-[#171719] dark:hover:bg-neutral-800"
-            >
-              查看完整详情 →
-            </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+
+                  if (applicationId) {
+                    router.push(
+                      `/application/${applicationId}`
+                    );
+                  }
+                }}
+                className="min-h-11 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-[#171719] dark:hover:bg-neutral-800"
+              >
+                查看完整详情 →
+              </button>
+            </div>
           </div>
         </div>
       )}
