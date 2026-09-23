@@ -43,7 +43,8 @@ const themeLabels: Record<ThemeMode, string> = {
   system: "跟随系统",
 };
 
-const PAGE_SIZE = 10;
+const APPLICATION_PAGE_SIZE = 10;
+const PROGRESS_PAGE_SIZE = 6;
 
 export default function Home() {
   const router = useRouter();
@@ -238,12 +239,12 @@ export default function Home() {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredApplications.length / PAGE_SIZE)
+    Math.ceil(filteredApplications.length / APPLICATION_PAGE_SIZE)
   );
 
   const paginatedApplications = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const end = start + PAGE_SIZE;
+    const start = (currentPage - 1) * APPLICATION_PAGE_SIZE;
+    const end = start + APPLICATION_PAGE_SIZE;
 
     return filteredApplications.slice(start, end);
   }, [filteredApplications, currentPage]);
@@ -312,12 +313,12 @@ export default function Home() {
 
   const totalProgressPages = Math.max(
     1,
-    Math.ceil(visibleProgress.length / PAGE_SIZE)
+    Math.ceil(visibleProgress.length / PROGRESS_PAGE_SIZE)
   );
 
   const paginatedProgress = useMemo(() => {
-    const start = (progressPage - 1) * PAGE_SIZE;
-    return visibleProgress.slice(start, start + PAGE_SIZE);
+    const start = (progressPage - 1) * PROGRESS_PAGE_SIZE;
+    return visibleProgress.slice(start, start + PROGRESS_PAGE_SIZE);
   }, [progressPage, visibleProgress]);
 
   useEffect(() => {
@@ -537,10 +538,10 @@ export default function Home() {
           loading={loading}
         />
 
-        <div className="mt-6 grid min-w-0 gap-6 sm:mt-8 2xl:grid-cols-[380px_minmax(0,1fr)]">
+        <div className="mt-6 grid min-w-0 gap-6 sm:mt-8 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.8fr)]">
           {/* 最近进展 */}
-          <section className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[28px] sm:p-6 dark:border-neutral-800 dark:bg-[#171719]">
-            <div className="mb-5 sm:mb-7">
+          <section className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[28px] sm:p-5 dark:border-neutral-800 dark:bg-[#171719]">
+            <div className="mb-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-xs font-medium tracking-[0.16em] text-neutral-400">
@@ -622,9 +623,9 @@ export default function Home() {
               {!loading && visibleProgress.length > 0 && (
                 <div className="mt-2 flex flex-col gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-800 sm:mt-3 sm:pt-5">
                   <p className="text-xs text-neutral-400">
-                    第 {(progressPage - 1) * PAGE_SIZE + 1}–
+                    第 {(progressPage - 1) * PROGRESS_PAGE_SIZE + 1}–
                     {Math.min(
-                      progressPage * PAGE_SIZE,
+                      progressPage * PROGRESS_PAGE_SIZE,
                       visibleProgress.length
                     )} 条，共 {visibleProgress.length} 条
                   </p>
@@ -780,11 +781,11 @@ export default function Home() {
               <table className="w-full table-fixed text-left">
                 <colgroup>
                   <col className="w-[18%]" />
-                  <col className="w-[28%]" />
-                  <col className="w-[120px]" />
-                  <col className="w-[120px]" />
-                  <col className="w-[128px]" />
-                  <col className="w-[120px]" />
+                  <col className="w-[30%]" />
+                  <col className="w-[100px]" />
+                  <col className="w-[100px]" />
+                  <col className="w-[112px]" />
+                  <col className="w-[88px]" />
                 </colgroup>
                 <thead>
                   <tr className="border-y border-neutral-100 text-xs text-neutral-400 dark:border-neutral-800">
@@ -804,7 +805,7 @@ export default function Home() {
                       onClick={() => router.push(`/application/${item.id}`)}
                       className="cursor-pointer border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
                     >
-                      <td className="px-4 py-4 align-top text-sm font-medium">
+                      <td className="px-4 py-3.5 align-top text-sm font-medium">
                         <p
                           className="line-clamp-2 break-words"
                           title={item.company || "—"}
@@ -813,7 +814,7 @@ export default function Home() {
                         </p>
                       </td>
 
-                      <td className="px-4 py-4 align-top text-sm text-neutral-600 dark:text-neutral-300">
+                      <td className="px-4 py-3.5 align-top text-sm text-neutral-600 dark:text-neutral-300">
                         <p
                           className="line-clamp-2 break-words"
                           title={item.role || "—"}
@@ -822,11 +823,11 @@ export default function Home() {
                         </p>
                       </td>
 
-                      <td className="px-3 py-4 align-top">
+                      <td className="px-2.5 py-3.5 align-top">
                         <StatusBadge status={item.status} />
                       </td>
 
-                      <td className="px-3 py-4 align-top text-sm text-neutral-400">
+                      <td className="px-2.5 py-3.5 align-top text-sm text-neutral-400">
                         <p
                           className="line-clamp-2 break-words"
                           title={item.base || "—"}
@@ -835,11 +836,11 @@ export default function Home() {
                         </p>
                       </td>
 
-                      <td className="whitespace-nowrap px-3 py-4 align-top text-sm text-neutral-400">
+                      <td className="whitespace-nowrap px-2.5 py-3.5 align-top text-sm text-neutral-400">
                         {item.date || "—"}
                       </td>
 
-                      <td className="px-3 py-3 align-top">
+                      <td className="px-2 py-3 align-top">
                         <div onClick={(event) => event.stopPropagation()}>
                           <AddProgressModal
                             applicationId={item.id}
@@ -863,9 +864,9 @@ export default function Home() {
                 {filteredApplications.length === 0
                   ? "暂无岗位"
                   : `第 ${
-                      (currentPage - 1) * PAGE_SIZE + 1
+                      (currentPage - 1) * APPLICATION_PAGE_SIZE + 1
                     }–${Math.min(
-                      currentPage * PAGE_SIZE,
+                      currentPage * APPLICATION_PAGE_SIZE,
                       filteredApplications.length
                     )} 条，共 ${filteredApplications.length} 条`}
               </p>

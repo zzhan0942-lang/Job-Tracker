@@ -182,7 +182,7 @@ const furthestExperiencedIndex = Math.max(
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full py-5 text-left"
+        className="w-full py-4 text-left"
       >
         <div className="flex gap-4">
           <div className="w-12 shrink-0 text-xs font-medium text-neutral-400">
@@ -192,11 +192,11 @@ const furthestExperiencedIndex = Math.max(
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-medium">
+                <p className="line-clamp-2 break-words text-sm font-medium leading-5">
                   {item.company || "未填写公司"}
                 </p>
 
-                <p className="mt-1 truncate text-sm text-neutral-400">
+                <p className="mt-1 line-clamp-2 break-words text-sm leading-5 text-neutral-400">
                   {item.role || "未填写岗位"}
                 </p>
               </div>

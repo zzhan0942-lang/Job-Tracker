@@ -164,10 +164,7 @@ export default function AddProgressModal({
         }
       >
         {compact ? (
-          <>
-            <span className="xl:hidden">+ 进展</span>
-            <span className="hidden xl:inline">+ 新增进展</span>
-          </>
+          "进展"
         ) : (
           "+ 新增进展"
         )}
