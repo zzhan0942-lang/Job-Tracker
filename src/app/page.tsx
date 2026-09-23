@@ -737,13 +737,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
-                    <span className="min-w-0 truncate text-xs text-neutral-400">
+                  <div className="mt-3 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-400">
+                    <span className="min-w-0 truncate">
                       {item.base || "未填写 Base"}
                     </span>
 
-                    <span className="shrink-0 text-xs text-neutral-300">
-                      {item.date || "—"}
+                    <span className="shrink-0 text-neutral-400">
+                      投递日期：{item.date || "—"}
                     </span>
                   </div>
                   </button>
@@ -769,14 +769,15 @@ export default function Home() {
 
             {/* 桌面端：表格 */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[860px] text-left">
+              <table className="w-full min-w-[980px] text-left">
                 <thead>
                   <tr className="border-y border-neutral-100 text-xs text-neutral-400 dark:border-neutral-800">
-                    <th className="w-[22%] px-6 py-3 font-medium">公司</th>
-                    <th className="w-[40%] px-4 py-3 font-medium">岗位</th>
-                    <th className="w-[18%] px-4 py-3 font-medium">状态</th>
-                    <th className="w-[14%] px-4 py-3 font-medium">Base</th>
-                    <th className="w-[16%] px-6 py-3 font-medium">操作</th>
+                    <th className="w-[18%] px-6 py-3 font-medium">公司</th>
+                    <th className="w-[29%] px-4 py-3 font-medium">岗位</th>
+                    <th className="w-[14%] px-4 py-3 font-medium">状态</th>
+                    <th className="w-[11%] px-4 py-3 font-medium">Base</th>
+                    <th className="w-[14%] px-4 py-3 font-medium">日期</th>
+                    <th className="w-[14%] px-6 py-3 font-medium">操作</th>
                   </tr>
                 </thead>
 
@@ -801,6 +802,10 @@ export default function Home() {
 
                       <td className="px-4 py-5 text-sm text-neutral-400">
                         {item.base || "—"}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-5 text-sm text-neutral-400">
+                        {item.date || "—"}
                       </td>
 
                       <td className="px-6 py-3">
