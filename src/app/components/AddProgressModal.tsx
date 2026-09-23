@@ -8,6 +8,7 @@ type Props = {
   role: string;
   onSuccess?: () => void | Promise<void>;
   variant?: "primary" | "secondary";
+  compact?: boolean;
 };
 
 const eventOptions = [
@@ -81,6 +82,7 @@ export default function AddProgressModal({
   role,
   onSuccess,
   variant = "primary",
+  compact = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [event, setEvent] = useState("收到测评");
@@ -152,13 +154,23 @@ export default function AddProgressModal({
       <button
         type="button"
         onClick={() => setOpen(true)}
+        title={compact ? "新增进展" : undefined}
         className={
           variant === "primary"
             ? "w-full whitespace-nowrap rounded-full bg-neutral-900 px-4 py-2.5 text-sm text-white transition hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 sm:w-auto sm:py-2"
+            : compact
+              ? "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full border border-neutral-200 bg-white px-3 text-sm text-neutral-600 transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-[#171719] dark:text-neutral-300 dark:hover:bg-neutral-800"
             : "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full border border-neutral-200 bg-white px-3.5 py-2 text-xs text-neutral-600 transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-[#171719] dark:text-neutral-300 dark:hover:bg-neutral-800"
         }
       >
-        + 新增进展
+        {compact ? (
+          <>
+            <span className="xl:hidden">+ 进展</span>
+            <span className="hidden xl:inline">+ 新增进展</span>
+          </>
+        ) : (
+          "+ 新增进展"
+        )}
       </button>
 
       {open && (

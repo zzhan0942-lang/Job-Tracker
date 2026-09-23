@@ -537,7 +537,7 @@ export default function Home() {
           loading={loading}
         />
 
-        <div className="mt-6 grid min-w-0 gap-6 sm:mt-8 lg:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="mt-6 grid min-w-0 gap-6 sm:mt-8 2xl:grid-cols-[380px_minmax(0,1fr)]">
           {/* 最近进展 */}
           <section className="min-w-0 rounded-[22px] border border-neutral-200 bg-white p-4 sm:rounded-[28px] sm:p-6 dark:border-neutral-800 dark:bg-[#171719]">
             <div className="mb-5 sm:mb-7">
@@ -665,7 +665,7 @@ export default function Home() {
 
           {/* 我的投递 */}
           <section className="w-full min-w-0 overflow-hidden rounded-[22px] border border-neutral-200 bg-white sm:rounded-[28px] dark:border-neutral-800 dark:bg-[#171719]">
-            <div className="flex items-center justify-between gap-3 px-4 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6">
+            <div className="flex flex-col items-start gap-3 px-4 pb-4 pt-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pb-5 sm:pt-6">
               <div className="min-w-0">
                 <p className="text-xs font-medium tracking-[0.16em] text-neutral-400">
                   APPLICATIONS
@@ -674,12 +674,12 @@ export default function Home() {
                 <h2 className="mt-1 text-xl font-semibold">我的投递</h2>
               </div>
 
-              <div className="shrink-0">
+              <div className="w-full sm:w-auto">
                 <AddApplicationModal />
               </div>
             </div>
 
-            <div className="grid gap-3 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
+            <div className="grid gap-3 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
@@ -687,30 +687,32 @@ export default function Home() {
                 className="w-full min-w-0 rounded-full border border-neutral-200 bg-[#f7f7f5] px-4 py-2.5 text-sm outline-none transition focus:border-neutral-400 dark:border-neutral-700 dark:bg-[#222224] dark:focus:border-neutral-500"
               />
 
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className="w-full min-w-0 rounded-full border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none dark:border-neutral-700 dark:bg-[#111113] md:w-auto"
-              >
-                <option value="全部">全部状态</option>
-                <option value="未投递">未投递</option>
-                <option value="已投递">已投递</option>
-                <option value="测评中">测评中</option>
-                <option value="已测评">已测评</option>
-                <option value="笔试中">笔试中</option>
-                <option value="已笔试">已笔试</option>
-                <option value="面试中">面试中</option>
-                <option value="已挂">已挂</option>
-                <option value="收到offer">收到 Offer</option>
-              </select>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:contents">
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                  className="w-full min-w-0 rounded-full border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none dark:border-neutral-700 dark:bg-[#111113] lg:w-auto"
+                >
+                  <option value="全部">全部状态</option>
+                  <option value="未投递">未投递</option>
+                  <option value="已投递">已投递</option>
+                  <option value="测评中">测评中</option>
+                  <option value="已测评">已测评</option>
+                  <option value="笔试中">笔试中</option>
+                  <option value="已笔试">已笔试</option>
+                  <option value="面试中">面试中</option>
+                  <option value="已挂">已挂</option>
+                  <option value="收到offer">收到 Offer</option>
+                </select>
 
-              <span className="text-right text-xs text-neutral-400 md:text-sm">
-                {filteredApplications.length} 条
-              </span>
+                <span className="whitespace-nowrap text-right text-sm text-neutral-400">
+                  {filteredApplications.length} 条
+                </span>
+              </div>
             </div>
 
             {/* 手机端：卡片 */}
-            <div className="divide-y divide-neutral-100 dark:divide-neutral-800 md:hidden">
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800 lg:hidden">
               {paginatedApplications.map((item) => (
                 <div
                   key={item.id}
@@ -721,31 +723,37 @@ export default function Home() {
                     onClick={() => router.push(`/application/${item.id}`)}
                     className="block w-full min-w-0 text-left transition active:bg-neutral-50 dark:active:bg-neutral-800"
                   >
-                  <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">
-                        {item.company || "—"}
-                      </p>
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 break-words text-base font-medium leading-5">
+                          {item.company || "—"}
+                        </p>
 
-                      <p className="mt-1 line-clamp-2 break-words text-sm leading-5 text-neutral-500">
-                        {item.role || "—"}
-                      </p>
+                        <p className="mt-1 line-clamp-2 break-words text-sm leading-5 text-neutral-500">
+                          {item.role || "—"}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0">
+                        <StatusBadge status={item.status} />
+                      </div>
                     </div>
 
-                    <div className="shrink-0">
-                      <StatusBadge status={item.status} />
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="text-xs text-neutral-400">Base</p>
+                        <p className="mt-1 line-clamp-2 break-words text-neutral-600 dark:text-neutral-300">
+                          {item.base || "—"}
+                        </p>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-xs text-neutral-400">投递日期</p>
+                        <p className="mt-1 whitespace-nowrap text-neutral-600 dark:text-neutral-300">
+                          {item.date || "—"}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="mt-3 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-400">
-                    <span className="min-w-0 truncate">
-                      {item.base || "未填写 Base"}
-                    </span>
-
-                    <span className="shrink-0 text-neutral-400">
-                      投递日期：{item.date || "—"}
-                    </span>
-                  </div>
                   </button>
 
                   <div className="mt-3">
@@ -768,16 +776,24 @@ export default function Home() {
             </div>
 
             {/* 桌面端：表格 */}
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[980px] text-left">
+            <div className="hidden lg:block">
+              <table className="w-full table-fixed text-left">
+                <colgroup>
+                  <col className="w-[18%]" />
+                  <col className="w-[28%]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[128px]" />
+                  <col className="w-[120px]" />
+                </colgroup>
                 <thead>
                   <tr className="border-y border-neutral-100 text-xs text-neutral-400 dark:border-neutral-800">
-                    <th className="w-[18%] px-6 py-3 font-medium">公司</th>
-                    <th className="w-[29%] px-4 py-3 font-medium">岗位</th>
-                    <th className="w-[14%] px-4 py-3 font-medium">状态</th>
-                    <th className="w-[11%] px-4 py-3 font-medium">Base</th>
-                    <th className="w-[14%] px-4 py-3 font-medium">日期</th>
-                    <th className="w-[14%] px-6 py-3 font-medium">操作</th>
+                    <th className="px-4 py-3 font-medium">公司</th>
+                    <th className="px-4 py-3 font-medium">岗位</th>
+                    <th className="px-3 py-3 font-medium">状态</th>
+                    <th className="px-3 py-3 font-medium">Base</th>
+                    <th className="px-3 py-3 font-medium">日期</th>
+                    <th className="px-3 py-3 font-medium">操作</th>
                   </tr>
                 </thead>
 
@@ -788,33 +804,49 @@ export default function Home() {
                       onClick={() => router.push(`/application/${item.id}`)}
                       className="cursor-pointer border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
                     >
-                      <td className="px-6 py-5 font-medium">
-                        {item.company || "—"}
+                      <td className="px-4 py-4 align-top text-sm font-medium">
+                        <p
+                          className="line-clamp-2 break-words"
+                          title={item.company || "—"}
+                        >
+                          {item.company || "—"}
+                        </p>
                       </td>
 
-                      <td className="px-4 py-5 text-sm text-neutral-600">
-                        {item.role || "—"}
+                      <td className="px-4 py-4 align-top text-sm text-neutral-600 dark:text-neutral-300">
+                        <p
+                          className="line-clamp-2 break-words"
+                          title={item.role || "—"}
+                        >
+                          {item.role || "—"}
+                        </p>
                       </td>
 
-                      <td className="px-4 py-5">
+                      <td className="px-3 py-4 align-top">
                         <StatusBadge status={item.status} />
                       </td>
 
-                      <td className="px-4 py-5 text-sm text-neutral-400">
-                        {item.base || "—"}
+                      <td className="px-3 py-4 align-top text-sm text-neutral-400">
+                        <p
+                          className="line-clamp-2 break-words"
+                          title={item.base || "—"}
+                        >
+                          {item.base || "—"}
+                        </p>
                       </td>
 
-                      <td className="whitespace-nowrap px-4 py-5 text-sm text-neutral-400">
+                      <td className="whitespace-nowrap px-3 py-4 align-top text-sm text-neutral-400">
                         {item.date || "—"}
                       </td>
 
-                      <td className="px-6 py-3">
+                      <td className="px-3 py-3 align-top">
                         <div onClick={(event) => event.stopPropagation()}>
                           <AddProgressModal
                             applicationId={item.id}
                             company={item.company}
                             role={item.role}
                             variant="secondary"
+                            compact
                             onSuccess={loadData}
                           />
                         </div>
@@ -826,7 +858,7 @@ export default function Home() {
             </div>
 
             {/* 分页必须放在“我的投递”卡片内部 */}
-            <div className="flex flex-col gap-3 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800 sm:px-6 sm:py-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800 sm:px-6 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
               <p className="text-xs text-neutral-400">
                 {filteredApplications.length === 0
                   ? "暂无岗位"
@@ -838,19 +870,19 @@ export default function Home() {
                     )} 条，共 ${filteredApplications.length} 条`}
               </p>
 
-              <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2 md:flex md:w-auto">
+              <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2 lg:flex lg:w-auto">
                 <button
                   type="button"
                   disabled={currentPage === 1}
                   onClick={() =>
                     setCurrentPage((page) => Math.max(1, page - 1))
                   }
-                  className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800 md:px-4"
+                  className="min-h-10 min-w-0 rounded-full border border-neutral-200 px-3 py-2 text-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800 md:px-4"
                 >
                   ← 上一页
                 </button>
 
-                <div className="flex min-w-[58px] items-center justify-center whitespace-nowrap text-xs text-neutral-500">
+                <div className="flex min-w-[58px] items-center justify-center whitespace-nowrap text-sm text-neutral-500">
                   {currentPage} / {totalPages}
                 </div>
 
@@ -862,7 +894,7 @@ export default function Home() {
                       Math.min(totalPages, page + 1)
                     )
                   }
-                  className="min-w-0 rounded-full border border-neutral-200 px-3 py-2.5 text-xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800 md:px-4"
+                  className="min-h-10 min-w-0 rounded-full border border-neutral-200 px-3 py-2 text-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800 md:px-4"
                 >
                   下一页 →
                 </button>
