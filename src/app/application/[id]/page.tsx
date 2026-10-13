@@ -5,6 +5,7 @@ import StatusBadge from "../../components/StatusBadge";
 import ProgressActions from "../../components/ProgressActions";
 import EditApplicationModal from "../../components/EditApplicationModal";
 import AddProgressModal from "../../components/AddProgressModal";
+import ApplicationJd from "../../components/ApplicationJd";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -16,6 +17,7 @@ type Application = {
   status: string;
   base: string;
   date: string | null;
+  jd?: string | null;
 };
 
 type ProgressEvent = {
@@ -227,6 +229,8 @@ export default function ApplicationDetailPage() {
             </p>
           </div>
         </section>
+
+        <ApplicationJd key={application.id} jd={application.jd} />
 
         {/* 完整求职流程 */}
         <div className="mb-6 min-w-0 overflow-hidden sm:mb-8">

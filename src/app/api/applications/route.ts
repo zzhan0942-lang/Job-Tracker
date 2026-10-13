@@ -74,6 +74,7 @@ export async function GET(request: Request) {
           status: properties["投递状态"]?.status?.name ?? "",
           base: getText(properties["Base"]),
           date: properties["日期"]?.date?.start ?? null,
+          jd: getText(properties["JD"]) || null,
         };
       })
       .filter((item) => item.company || item.role || item.title);
