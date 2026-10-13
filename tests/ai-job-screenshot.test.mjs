@@ -32,6 +32,7 @@ function loadSource(filename) {
 }
 
 const { parseJobScreenshotResult, MAX_SCREENSHOT_BYTES, SCREENSHOT_ERROR } = loadSource(resolve(root, "src/lib/job-screenshot.ts"));
+const { normalizeJobScreenshotResponse, parseJobScreenshotResponse } = loadSource(resolve(root, "src/lib/job-screenshot-response.ts"));
 const { POST } = loadSource(resolve(root, "src/app/api/ai/parse-job-screenshot/route.ts"));
 const { matchesImageSignature } = loadSource(resolve(root, "src/lib/screenshot-upload.ts"));
 const { parseApplicationInput } = loadSource(resolve(root, "src/lib/api-validation.ts"));
@@ -66,7 +67,10 @@ function request(type = "image/png", body = fixtures[type], authorized = true, e
 }
 
 function mockModel(job, overrides = {}) {
-  return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(job) }, ...overrides }] });
+  const withEvidence = job && !Array.isArray(job) && job.applicationDate
+    ? { applicationDateEvidence: `投递时间：${job.applicationDate}`, ...job }
+    : job;
+  return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(withEvidence) }, ...overrides }] });
 }
 
 test("PNG, JPEG and WebP use the authenticated DeepSeek image request and return validated fields", async () => {
@@ -97,7 +101,10 @@ test("missing fields remain null including date and status; partial jobs remain 
     globalThis.fetch = async () => mockModel(partial);
     const response = await POST(request());
     assert.equal(response.status, 200);
-    assert.deepEqual((await response.json()).job, partial);
+    assert.deepEqual((await response.json()).job, {
+      ...partial,
+      confidence: { ...partial.confidence, base: 0, applicationDate: 0, status: 0 },
+    });
     const edited = { company: partial.company, role: "用户修改后的岗位", base: "", date: "", status: "面试中", note: "", url: "" };
     assert.equal(parseApplicationInput(edited, false)?.role, "用户修改后的岗位");
     assert.equal(parseApplicationInput(edited, false)?.date, null);
@@ -105,7 +112,7 @@ test("missing fields remain null including date and status; partial jobs remain 
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test("reject invalid model dates, enum values, URLs, types, extra keys and confidence", () => {
+test("the final canonical schema still rejects unsafe or noncanonical values", () => {
   for (const invalid of [
     { ...knownJob, applicationDate: "2026-02-30" },
     { ...knownJob, applicationDate: "2026-10" },
@@ -117,6 +124,128 @@ test("reject invalid model dates, enum values, URLs, types, extra keys and confi
     { ...knownJob, confidence: { ...knownJob.confidence, status: "0.8" } },
     { ...knownJob, position: "x".repeat(201) },
   ]) assert.equal(parseJobScreenshotResult(invalid), null);
+});
+
+test("normalize nullable/missing fields, whitespace, empty URLs, base arrays and extra provider keys", () => {
+  const parsed = normalizeJobScreenshotResponse({
+    company: " 测试公司 ", position: " 内容运营 ", base: [" 北京 ", "上海", ""],
+    applicationDate: "", status: null, officialUrl: " ", extra: "ignored private text",
+  });
+  assert.equal(parsed.failure, null);
+  assert.deepEqual(parsed.job, {
+    company: "测试公司", position: "内容运营", base: "北京，上海",
+    applicationDate: null, status: null, officialUrl: null,
+    confidence: { company: 0, position: 0, base: 0, applicationDate: 0, status: 0 },
+  });
+  for (const input of [["上海"], [], { city: "上海" }, 123, ["上海", {}]]) {
+    const result = normalizeJobScreenshotResponse({ ...knownJob, base: input });
+    assert.equal(result.failure, null);
+    assert.equal(result.job.base, Array.isArray(input) && input.length === 1 ? "上海" : null);
+  }
+  const allNull = normalizeJobScreenshotResponse({ company: null, position: null, base: null, applicationDate: null, status: null, officialUrl: null });
+  assert.equal(allNull.failure, null);
+  assert.equal(allNull.job.company, null);
+  assert.equal(allNull.job.status, null);
+});
+
+test("only explicit application statuses are mapped; recruitment labels and unknown values become null", () => {
+  for (const status of ["校园招聘", "招聘中", "职位开放", "JD", "待申请", "简历审核", "", null, undefined, { status: "已投递" }, "not valid", "toString", "__proto__"]) {
+    const parsed = normalizeJobScreenshotResponse({ ...knownJob, status });
+    assert.equal(parsed.failure, null);
+    assert.equal(parsed.job.status, null);
+    assert.equal(parsed.job.confidence.status, 0);
+  }
+  for (const status of ["简历已提交", " 投递成功 ", "申请已提交"]) {
+    assert.equal(normalizeJobScreenshotResponse({ ...knownJob, status }).job.status, "已投递");
+  }
+  for (const status of ["未投递", "测评中", "已测评", "笔试中", "已笔试", "面试中", "已挂", "收到offer"]) {
+    assert.equal(normalizeJobScreenshotResponse({ ...knownJob, status }).job.status, status);
+  }
+});
+
+test("publication/update dates and bare dates stay null; explicit matching application-date evidence is required", () => {
+  for (const fields of [
+    { applicationDate: "2026-09-10 发布" },
+    { applicationDate: "发布日期：2026-09-10" },
+    { applicationDate: "2026-09-10", applicationDateEvidence: "职位发布时间：2026-09-10" },
+    { applicationDate: "2026-09-10", applicationDateEvidence: "更新日期：2026-09-10" },
+    { applicationDate: "2026-09-10", applicationDateEvidence: "面试时间：2026-09-10" },
+    { applicationDate: "2026-09-10" },
+    { applicationDate: "2026-09-10", applicationDateEvidence: "投递时间" },
+    { applicationDate: "2026-09-10", applicationDateEvidence: "申请时间：2026-09-11" },
+    { applicationDate: "2026-02-30", applicationDateEvidence: "投递日期：2026-02-30" },
+    { applicationDate: "09-10", applicationDateEvidence: "申请时间：09-10" },
+  ]) {
+    const parsed = normalizeJobScreenshotResponse({ ...knownJob, ...fields });
+    assert.equal(parsed.failure, null);
+    assert.equal(parsed.job.applicationDate, null);
+    assert.equal(parsed.job.confidence.applicationDate, 0);
+  }
+  for (const fields of [
+    { applicationDate: "2026-09-10", applicationDateEvidence: "已投递时间：2026-09-10" },
+    { applicationDate: "2026-09-10", applicationDateEvidence: "申请时间：2026年9月10日 12:30" },
+    { applicationDate: "投递日期：2026/9/10" },
+  ]) assert.equal(normalizeJobScreenshotResponse({ ...knownJob, ...fields }).job.applicationDate, "2026-09-10");
+});
+
+test("confidence strings are converted and clamped; missing or malformed confidence never rejects a job", () => {
+  const parsed = normalizeJobScreenshotResponse({ ...knownJob, confidence: {
+    company: "0.95", position: "1.2", base: -1, applicationDate: {}, status: "bad",
+  } });
+  assert.equal(parsed.failure, null);
+  assert.deepEqual(parsed.job.confidence, { company: 0.95, position: 1, base: 0, applicationDate: 0, status: 0 });
+  for (const confidence of [undefined, null, "0.95", [], { company: false }, { company: "" }, { company: "Infinity" }, { company: "0xff" }]) {
+    const normalized = normalizeJobScreenshotResponse({ ...knownJob, confidence });
+    assert.equal(normalized.failure, null);
+    assert.ok(Object.values(normalized.job.confidence).every((value) => Number.isFinite(value) && value >= 0 && value <= 1));
+  }
+});
+
+test("JSON fences are accepted without evaluating or extracting ambiguous prose; diagnostics contain no values", () => {
+  for (const content of [JSON.stringify(knownJob), `\n\uFEFF\n\x60\x60\x60json\n${JSON.stringify(knownJob)}\n\x60\x60\x60\n`, `\x60\x60\x60\n${JSON.stringify(knownJob)}\n\x60\x60\x60`]) {
+    assert.equal(parseJobScreenshotResponse(content).failure, null);
+  }
+  for (const content of ["private malformed JSON", `Here is JSON: ${JSON.stringify(knownJob)}`, '{"company":"private truncated text"', '{}\n{}']) {
+    const parsed = parseJobScreenshotResponse(content);
+    assert.equal(parsed.failure, "invalid_json");
+    assert.deepEqual(parsed.issues, [{ field: "response", type: "string", reason: "invalid_json" }]);
+  }
+  for (const value of [null, [], "private text", 123]) {
+    const parsed = normalizeJobScreenshotResponse(value);
+    assert.equal(parsed.failure, "invalid_fields");
+    assert.equal(parsed.issues[0].field, "response");
+    assert.equal(parsed.issues[0].reason, "expected_object");
+  }
+  const parsed = normalizeJobScreenshotResponse({ ...knownJob, company: { private: "private name" }, status: "private status", confidence: { company: "private score" } });
+  assert.ok(parsed.issues.some((issue) => issue.field === "company" && issue.type === "object" && issue.reason === "expected_string"));
+  assert.ok(parsed.issues.some((issue) => issue.field === "confidence.company" && issue.reason === "expected_number"));
+  assert.ok(!JSON.stringify(parsed.issues).includes("private"));
+  assert.ok(!JSON.stringify(parsed.issues).includes(knownJob.company));
+});
+
+test("a realistic fenced response with base array, recruitment status and absent confidence succeeds at the route", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const logs = [];
+  console.warn = (...args) => logs.push(args);
+  try {
+    globalThis.fetch = async () => mockModel(null, { message: { content: `\x60\x60\x60json\n${JSON.stringify({
+      company: "测试公司", position: "内容运营", base: ["上海"], applicationDate: "2026-09-10 发布", status: "校园招聘", officialUrl: "",
+    })}\n\x60\x60\x60` } });
+    const response = await POST(request());
+    assert.equal(response.status, 200);
+    const { job } = await response.json();
+    assert.equal(job.base, "上海");
+    assert.equal(job.applicationDate, null);
+    assert.equal(job.status, null);
+    assert.equal(job.officialUrl, null);
+    assert.deepEqual(job.confidence, { company: 0, position: 0, base: 0, applicationDate: 0, status: 0 });
+    assert.ok(logs.some((entry) => entry[1].issues.some((issue) => issue.field === "status" && issue.reason === "unmapped_status")));
+    assert.ok(!JSON.stringify(logs).includes("校园招聘"));
+    assert.ok(!JSON.stringify(logs).includes("2026-09-10"));
+    assert.ok(!JSON.stringify(logs).includes(knownJob.company));
+    assert.ok(!JSON.stringify(logs).includes("fake-test-key"));
+  } finally { globalThis.fetch = originalFetch; console.warn = originalWarn; }
 });
 
 test("manual and edited AI submissions use the original API and correct Notion properties (mock)", async () => {
@@ -156,8 +285,10 @@ test("auth, unsupported types, mislabeled non-images, empty and oversized files 
 test("missing key, timeout, non-JSON, invalid fields, no job and provider errors fail safely", async () => {
   const originalFetch = globalThis.fetch;
   const originalError = console.error;
+  const originalWarn = console.warn;
   const logs = [];
   console.error = (...args) => logs.push(args);
+  console.warn = (...args) => logs.push(args);
   try {
     process.env.DEEPSEEK_API_KEY = "";
     let response = await POST(request());
@@ -167,7 +298,7 @@ test("missing key, timeout, non-JSON, invalid fields, no job and provider errors
     for (const [provider, status] of [
       [async () => { throw new DOMException("private timeout detail", "TimeoutError"); }, 504],
       [async () => new Response("private non-JSON response"), 502],
-      [async () => mockModel({ ...knownJob, status: "not valid" }), 502],
+      [async () => mockModel([knownJob]), 502],
       [async () => mockModel({ ...knownJob, company: null, position: null }), 502],
       [async () => mockModel(knownJob, { finish_reason: "length" }), 502],
       [async () => new Response("private provider failure", { status: 401 }), 502],
@@ -181,9 +312,11 @@ test("missing key, timeout, non-JSON, invalid fields, no job and provider errors
     assert.ok(!JSON.stringify(logs).includes("private"));
     assert.ok(!JSON.stringify(logs).includes("fake-test-key"));
     assert.ok(!JSON.stringify(logs).includes(knownJob.company));
+    assert.ok(logs.some((entry) => entry[0] === "AI response validation failed" && entry[1].issues.some((issue) => issue.reason === "expected_object")));
   } finally {
     globalThis.fetch = originalFetch;
     console.error = originalError;
+    console.warn = originalWarn;
     delete process.env.DEEPSEEK_API_KEY;
   }
 });
