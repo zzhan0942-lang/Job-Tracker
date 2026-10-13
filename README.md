@@ -24,6 +24,7 @@ Each deployment uses the owner's own Notion integration and databases.
 ## Features
 
 - Create, edit, and delete job applications.
+- Import a job screenshot with DeepSeek, review the prefilled fields, and confirm before saving.
 - Record progress events and automatically sync the application status.
 - View application details, a timeline, filters, pagination, and job-search insights.
 - Store data in two connected Notion data sources that you control.
@@ -57,6 +58,18 @@ npm run dev
 ```
 
 Open `http://localhost:3000`. The browser will request your `JOB_TRACKER_AUTH_USERNAME` and `JOB_TRACKER_AUTH_PASSWORD` before the dashboard or API routes are available.
+
+## AI screenshot import (optional)
+
+Set `DEEPSEEK_API_KEY` in your server environment or local `.env.local`, then restart the app. Configure the same variable in your hosting platform when deploying. Manual entry works without this key.
+
+Choose **+ 新增岗位 → AI 截图识别**, upload one PNG, JPEG, or WebP image (up to 10MB), then start recognition. The server calls [`deepseek-flash`](https://api-docs.deepseek.com/guides/vision) and validates the returned JSON. Screenshots are used in memory for this request and are not saved by Job Tracker. They are sent to DeepSeek, so avoid screenshots containing sensitive information.
+
+Review and edit the existing application form before confirming. Unknown fields stay empty, including the application date. If the status is unknown, select it manually before saving. Low-confidence fields show a light reminder. Recognition never creates a Notion record on its own.
+
+The hosting platform must accept the upload request size; a lower platform request-body limit takes precedence over the app's 10MB limit.
+
+Run `npm test`, `npx tsc --noEmit`, and `npm run build -- --webpack` to check this integration. Tests use generated images and mocked provider/Notion responses; they do not use real credentials or verify live recognition. `tests/ui-ai-test-server.mjs` provides a localhost-only mock proxy for checking the UI against a production app on port 3011 with the dummy login `test-user` / `test-password`.
 
 ## Notion Template (recommended)
 
