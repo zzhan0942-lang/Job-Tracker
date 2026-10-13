@@ -54,7 +54,7 @@ function getText(property: NotionProperty | undefined) {
 }
 
 export async function GET(request: Request) {
-  const authError = requireApiAuth(request);
+  const authError = await requireApiAuth(request);
   if (authError) return authError;
 
   const dataSourceId = applicationsDataSourceId();
@@ -90,7 +90,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authError = requireApiAuth(request);
+  const authError = await requireApiAuth(request);
   if (authError) return authError;
 
   const body = await readJson(request);
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const authError = requireApiAuth(request);
+  const authError = await requireApiAuth(request);
   if (authError) return authError;
 
   const body = await readJson(request);
@@ -190,7 +190,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authError = requireApiAuth(request);
+  const authError = await requireApiAuth(request);
   if (authError) return authError;
 
   const body = await readJson(request);

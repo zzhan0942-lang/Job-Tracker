@@ -1,5 +1,5 @@
 // Local UI fixture server. Provider and Notion writes are mocked; nothing leaves localhost.
-// Start the production app on 3011 with the dummy Basic Auth credentials below first.
+// Start the app on 3011 with a synthetic JOB_TRACKER_ACCESS_PASSWORD first.
 import { createServer, request } from "node:http";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,16 +13,15 @@ await sharp(image).jpeg().toFile(join(fixtures, "test.jpg"));
 await sharp(image).webp().toFile(join(fixtures, "test.webp"));
 const submissions = [];
 let recognitions = 0;
-const auth = `Basic ${Buffer.from("test-user:test-password").toString("base64")}`;
+// Check the real application's auth boundary before serving mock business data.
 const server = createServer(async (req, res) => {
   const json = (data, status = 200) => {
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
     res.end(JSON.stringify(data));
   };
-  if (req.headers.authorization !== auth) {
-    res.writeHead(401, { "WWW-Authenticate": 'Basic realm="Local UI test"' });
-    res.end();
-    return;
+  if (req.url.startsWith("/api/") && !req.url.startsWith("/api/auth/")) {
+    const check = await fetch("http://127.0.0.1:3011/__test-auth-check", { redirect: "manual", headers: { Cookie: req.headers.cookie ?? "" } });
+    if (check.status !== 404) return json({ success: false, error: "请先登录" }, 401);
   }
   if (req.url === "/__test/results") return json({ submissions, recognitions });
   if (req.url === "/api/ai/parse-job-screenshot" && req.method === "POST") {

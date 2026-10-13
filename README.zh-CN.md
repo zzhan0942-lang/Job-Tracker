@@ -181,7 +181,7 @@ AI 截图导入支持点击上传、拖拽、⌘V / Ctrl+V 粘贴 PNG、JPEG、W
 - 岗位详情页与完整进度时间线。
 - 根据进度事件自动同步岗位状态。
 - 使用 Notion API 存储自己的求职记录。
-- 服务器端 Basic Auth 保护页面和 API。
+- 站内单密码登录页，服务器端签名 HttpOnly Cookie 保护页面与业务 API。
 - 可部署到支持 Next.js 的平台，或自行托管。
 
 ## 技术栈
@@ -211,6 +211,11 @@ npm run dev
 - 仓库不包含真实 Notion Token。
 - 每位使用者应使用自己的 Notion Integration 和数据库。
 - 不要将 `.env.local` 提交到 GitHub。
-- 线上个人实例建议开启 Basic Auth。
-- 不要用 `NEXT_PUBLIC_` 前缀保存 Notion Token、Data Source ID 或 Basic Auth 凭据。
+- 必须配置单一服务端访问密码 `JOB_TRACKER_ACCESS_PASSWORD`；未配置时默认拒绝访问。未登录页面跳转 `/login`，业务 API 返回 401，不再弹出浏览器原生认证窗口。
+- 不要用 `NEXT_PUBLIC_` 前缀保存 Notion Token、Data Source ID、访问密码或 DeepSeek Key。
 - Notion Integration 应只被授权访问目标数据库。
+- 会话 Cookie 使用 HMAC-SHA-256 签名，包含随机 nonce 和有效期，不包含密码或密码 hash。HttpOnly、SameSite=Lax，有效期 7 天；Production 固定启用 Secure，必须通过 HTTPS 部署。
+- 修改访问密码并让所有运行实例加载新配置后，旧会话签名自动失效。退出登录会清除当前浏览器 Cookie；复制或被盗的旧 Cookie 仍需通过密码轮换或到期失效。
+- 登录、退出及业务写入请求校验精确同源 Origin，并拒绝跨站 Fetch Metadata。非浏览器调用需同时发送 Cookie 和匹配请求 URL 的 Origin。
+- 登录限速为每个服务实例 15 分钟最多 10 次尝试，超过返回 429 / Retry-After，不信任客户端 IP 头。内存限速不跨实例持久化；EdgeOne Production 建议额外为 `/api/auth/login` 配置平台级限速，防止分布式暴力尝试。
+- EdgeOne Production 配置新密码后重新部署；勿覆盖私有响应的 no-store 缓存策略。完整本地测试不等于已经验证线上环境变量与部署行为。

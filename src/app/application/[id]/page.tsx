@@ -57,6 +57,11 @@ export default function ApplicationDetailPage() {
             fetch("/api/progress"),
           ]);
 
+        if (applicationResponse.status === 401 || progressResponse.status === 401) {
+          window.location.replace("/login");
+          return;
+        }
+
         const applicationData =
           await applicationResponse.json();
 

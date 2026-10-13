@@ -14,7 +14,7 @@ function failure(status: number) {
 }
 
 export async function POST(request: Request) {
-  const authError = requireApiAuth(request);
+  const authError = await requireApiAuth(request);
   if (authError) return authError;
 
   const mimeType = (request.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();

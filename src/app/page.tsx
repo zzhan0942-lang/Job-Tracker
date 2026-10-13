@@ -1,5 +1,7 @@
 "use client";
 
+import LogoutButton from "./components/LogoutButton";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddApplicationModal from "./components/AddApplicationModal";
@@ -110,6 +112,11 @@ export default function Home() {
         fetch("/api/applications"),
         fetch("/api/progress"),
       ]);
+
+      if (applicationsResponse.status === 401 || progressResponse.status === 401) {
+        window.location.replace("/login");
+        return;
+      }
 
       const applicationsData = await applicationsResponse.json();
       const progressData = await progressResponse.json();
@@ -374,6 +381,7 @@ export default function Home() {
             </p>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-fit">
             <button
               type="button"
@@ -417,6 +425,8 @@ export default function Home() {
                 ))}
               </div>
             )}
+          </div>
+          <LogoutButton />
           </div>
         </header>
 

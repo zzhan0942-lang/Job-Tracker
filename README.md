@@ -28,7 +28,7 @@ Each deployment uses the owner's own Notion integration and databases.
 - Record progress events and automatically sync the application status.
 - View application details, a timeline, filters, pagination, and job-search insights.
 - Store data in two connected Notion data sources that you control.
-- Protect the dashboard and every API route with server-side HTTP Basic Authentication.
+- Protect pages and business APIs with an in-app password login and signed HttpOnly session cookie.
 
 ## Tech Stack
 
@@ -57,7 +57,7 @@ Fill in `.env.local` with your own values, then start the app:
 npm run dev
 ```
 
-Open `http://localhost:3000`. The browser will request your `JOB_TRACKER_AUTH_USERNAME` and `JOB_TRACKER_AUTH_PASSWORD` before the dashboard or API routes are available.
+Open `http://localhost:3000`. You will be redirected to `/login`; enter the single server-side `JOB_TRACKER_ACCESS_PASSWORD`. No browser-native authentication prompt is used. Without this variable, protected pages and business APIs fail closed.
 
 ## AI screenshot import (optional)
 
@@ -69,7 +69,7 @@ Review and edit the existing application form before confirming. Unknown fields 
 
 The hosting platform must accept the upload request size; a lower platform request-body limit takes precedence over the app's 10MB limit.
 
-Run `npm test`, `npx tsc --noEmit`, and `npm run build -- --webpack` to check this integration. Tests use generated images and mocked provider/Notion responses; they do not use real credentials or verify live recognition. `tests/ui-ai-test-server.mjs` provides a localhost-only mock proxy for checking the UI against a production app on port 3011 with the dummy login `test-user` / `test-password`.
+Run `npm test`, `npx tsc --noEmit`, and `npm run build -- --webpack` to check this integration. Tests use generated images and mocked provider/Notion responses; they do not use real credentials or verify live recognition. `tests/ui-ai-test-server.mjs` provides a localhost-only mock proxy for checking the UI against an app on port 3011 configured with a synthetic access password. Log in through the normal `/login` page.
 
 ## Notion Template (recommended)
 
@@ -84,7 +84,7 @@ The template contains no author's personal job-application data and no Notion to
 3. Grant the integration access only to the two duplicated databases.
 4. Copy the Applications and Progress Data Source IDs.
 5. Copy `.env.example` to `.env.local`.
-6. Fill in your own Notion token, data source IDs, and Basic Auth credentials.
+6. Fill in your own Notion token, data source IDs, and a strong access password.
 7. Run `npm install` and `npm run dev`.
 
 Do not commit `.env.local` to GitHub.
@@ -98,7 +98,7 @@ Prefer the template above for a quick start. Use this section if you want to cre
 3. Add a relation between the two data sources: `Progress.关联岗位` points to Applications, and the reciprocal Applications property is named `进度记录`.
 4. Share both data sources with the integration from step 1.
 5. Copy each data source ID into the matching variable in `.env.local`.
-6. Choose a private Basic Auth username and a strong password for `JOB_TRACKER_AUTH_USERNAME` and `JOB_TRACKER_AUTH_PASSWORD`.
+6. Choose a unique, strong password for `JOB_TRACKER_ACCESS_PASSWORD` (prefer a randomly generated password or a long random passphrase).
 
 The project uses the following server-only environment variables:
 
@@ -107,8 +107,10 @@ NOTION_TOKEN=your_notion_integration_token
 NOTION_APPLICATIONS_DATA_SOURCE_ID=your_applications_data_source_id
 NOTION_PROGRESS_DATA_SOURCE_ID=your_progress_data_source_id
 
-JOB_TRACKER_AUTH_USERNAME=your_username
-JOB_TRACKER_AUTH_PASSWORD=your_secure_password
+JOB_TRACKER_ACCESS_PASSWORD=your_unique_strong_access_password
+
+# Optional: AI screenshot recognition
+DEEPSEEK_API_KEY=your_deepseek_api_key
 ```
 
 ## Required Notion data structure
@@ -162,23 +164,35 @@ Use these select options:
 ## Security notes
 
 - Never commit `.env.local`; `.env.example` contains placeholders only and is safe to commit.
-- Never use a `NEXT_PUBLIC_` prefix for the Notion token, data source IDs, or Basic Auth credentials. Such variables are bundled into browser code.
+- Never use a `NEXT_PUBLIC_` prefix for the Notion token, data source IDs, access password, or DeepSeek key. Such variables are bundled into browser code.
 - Grant the Notion integration access only to the two target data sources.
-- Deploy production instances over HTTPS. HTTP Basic Authentication must not be used over plain HTTP.
-- Use a unique, strong `JOB_TRACKER_AUTH_PASSWORD` and rotate it if you suspect exposure.
+- Deploy production instances over HTTPS; production cookies have `Secure` enabled.
+- Use a unique, strong `JOB_TRACKER_ACCESS_PASSWORD` and rotate it if you suspect exposure. This is a shared single-user gate, not a multi-user account system.
+
+### Password login and sessions
+
+Only `/login`, the exact login/logout POST endpoints, and framework static assets are public. Anonymous page requests redirect to `/login`; business APIs return 401 and independently validate the session in every handler. Missing or blank password configuration returns 503 rather than allowing access. No diagnostic auth endpoints are exposed.
+
+The `job_tracker_session` cookie has `HttpOnly`, `SameSite=Lax`, `Path=/`, and a seven-day lifetime; `Secure` is always set in production. Its payload contains a version, issuance/expiry times, and a random nonce, signed with HMAC-SHA-256 using a domain-separated key derived from the current access password. Neither the password nor its hash is stored in the cookie. Password changes invalidate all old signatures once every running instance has the new environment configuration (redeploy/restart as needed). Logout clears the browser cookie; signed cookies are stateless, so a copied/stolen token remains valid until expiry or password rotation.
+
+All login/logout and business mutation requests require an exact same-origin `Origin` header; cross-site/sibling-site Fetch Metadata is rejected. Forwarded host headers are not trusted for this decision. Non-browser API clients must send the session cookie and an `Origin` matching the request URL. Private responses are marked `private, no-store` and `CDN-Cache-Control: no-store`; do not override these with hosting/CDN caching rules.
+
+Login allows at most 10 attempts per 15-minute window per running service instance, including valid and malformed attempts; excess requests return 429 with `Retry-After`. This limit deliberately does not trust client-supplied IP headers. It is in-memory, shared by requests in that instance, and resets on cold starts/restarts. On serverless/multi-instance deployments, add an EdgeOne/hosting-layer global rate-limit rule for `/api/auth/login` to protect against distributed brute force. This app does not provision that rule automatically.
+
+Development (`npm run dev`) supports HTTP localhost cookies. Production uses Secure cookies even on localhost; browsers generally allow localhost as a secure-cookie exception, while non-browser clients may require an HTTPS local test or explicit cookie handling. EdgeOne supports Next.js server functions and private environment variables; configure `JOB_TRACKER_ACCESS_PASSWORD` in Production, redeploy, verify the login flow, and ensure Proxy and route handlers receive the same environment. Runtime integration on a specific production deployment must be checked there.
 
 ## Deploy
 
 Deploy to Vercel or any platform that supports Next.js.
 
 1. Create a new project from your fork or repository.
-2. Set all five environment variables from `.env.example` in the platform's server-side environment settings. Do not mark them as public variables.
+2. Set the Notion token, both data source IDs, and `JOB_TRACKER_ACCESS_PASSWORD` from `.env.example` in the platform's server-side environment settings. `DEEPSEEK_API_KEY` is optional unless screenshot recognition is needed. Do not mark any of these as public variables.
 3. Deploy with the standard build command:
 
    ```bash
    npm run build
    ```
 
-4. Confirm the deployment is served through HTTPS, then open the site and authenticate with the Basic Auth credentials you configured.
+4. Confirm the deployment is served through HTTPS, then open the site and log in using the configured access password. Existing username/password auth variables are no longer used and can be removed from hosting configuration.
 
 For self-hosting, run `npm run build` followed by `npm run start` in an HTTPS-capable environment.

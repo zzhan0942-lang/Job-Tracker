@@ -62,15 +62,15 @@ const knownJob = {
   status: "已投递", officialUrl: "https://example.com/jobs", jobDescription: null,
   confidence: { company: 0.98, position: 0.95, base: 0.82, applicationDate: 0.54, status: 0.91 },
 };
-const auth = `Basic ${Buffer.from("test-user:test-password").toString("base64")}`;
-process.env.JOB_TRACKER_AUTH_USERNAME = "test-user";
-process.env.JOB_TRACKER_AUTH_PASSWORD = "test-password";
+process.env.JOB_TRACKER_ACCESS_PASSWORD = "synthetic-test-password";
+const { createSession, SESSION_COOKIE } = loadSource(resolve(root, "src/lib/api-auth.ts"));
+const auth = `${SESSION_COOKIE}=${await createSession(process.env.JOB_TRACKER_ACCESS_PASSWORD)}`;
 process.env.DEEPSEEK_API_KEY = "fake-test-key";
 
 function request(type = "image/png", body = fixtures[type], authorized = true, extraHeaders = {}) {
   return new Request("http://localhost/api/ai/parse-job-screenshot", {
     method: "POST", body,
-    headers: { "Content-Type": type, ...(authorized ? { Authorization: auth } : {}), ...extraHeaders },
+    headers: { "Content-Type": type, Origin: "http://localhost", ...(authorized ? { Cookie: auth } : {}), ...extraHeaders },
   });
 }
 
@@ -264,7 +264,7 @@ test("manual and edited AI submissions use the original API and correct Notion p
     { company: "测试公司", role: "用户修改后的岗位", base: "", date: "", status: "面试中", note: "", url: "" },
   ]) {
     const response = await createApplication(new Request("http://localhost/api/applications", {
-      method: "POST", headers: { Authorization: auth, "Content-Type": "application/json" }, body: JSON.stringify(input),
+      method: "POST", headers: { Cookie: auth, Origin: "http://localhost", "Content-Type": "application/json" }, body: JSON.stringify(input),
     }));
     assert.equal(response.status, 200);
     const properties = notionCreates.at(-1).properties;
@@ -410,7 +410,7 @@ test("clipboard PNG/JPEG/WebP and file-list fallback share the upload validation
 test("optional JD reuses an existing rich-text property; a missing schema stops the write without losing JD", async () => {
   const input = { company: "测试公司", role: "测试岗位", base: "", status: "已投递", date: "2026-10-13", note: "独立备注", url: "" };
   const submit = (data) => createApplication(new Request("http://localhost/api/applications", {
-    method: "POST", headers: { Authorization: auth, "Content-Type": "application/json" }, body: JSON.stringify(data),
+    method: "POST", headers: { Cookie: auth, Origin: "http://localhost", "Content-Type": "application/json" }, body: JSON.stringify(data),
   }));
   const beforeReads = schemaReads;
   assert.equal((await submit(input)).status, 200);
