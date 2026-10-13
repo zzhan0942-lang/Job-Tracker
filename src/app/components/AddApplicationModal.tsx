@@ -2,22 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import AiJobScreenshotUpload from "./AiJobScreenshotUpload";
-import { type ConfidenceField, type ParsedJobScreenshot } from "@/lib/job-screenshot";
-
-function getToday() {
-  const now = new Date();
-
-  const year = now.getFullYear();
-  const month = String(
-    now.getMonth() + 1
-  ).padStart(2, "0");
-
-  const day = String(
-    now.getDate()
-  ).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
+import { MAX_JOB_DESCRIPTION_LENGTH, type ConfidenceField, type ParsedJobScreenshot } from "@/lib/job-screenshot";
+import { getLocalToday, jobScreenshotPrefill } from "@/lib/job-screenshot-prefill";
 
 export default function AddApplicationModal() {
   const [open, setOpen] = useState(false);
@@ -28,9 +14,10 @@ export default function AddApplicationModal() {
   const [role, setRole] = useState("");
   const [base, setBase] = useState("");
   const [status, setStatus] = useState("已投递");
-  const [date, setDate] = useState(getToday());
+  const [date, setDate] = useState(getLocalToday());
   const [note, setNote] = useState("");
   const [url, setUrl] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -41,22 +28,25 @@ export default function AddApplicationModal() {
       setRole("");
       setBase("");
       setStatus("已投递");
-      setDate(getToday());
+      setDate(getLocalToday());
       setNote("");
       setUrl("");
     }
     setAiResult(null);
+    setJobDescription("");
     setError("");
     setStep("manual");
   }
 
   function prefill(job: ParsedJobScreenshot) {
-    setCompany(job.company ?? "");
-    setRole(job.position ?? "");
-    setBase(job.base ?? "");
-    setStatus(job.status ?? "");
-    setDate(job.applicationDate ?? "");
-    setUrl(job.officialUrl ?? "");
+    const values = jobScreenshotPrefill(job);
+    setCompany(values.company);
+    setRole(values.role);
+    setBase(values.base);
+    setStatus(values.status);
+    setDate(values.date);
+    setUrl(values.url);
+    setJobDescription(values.jobDescription);
     setNote("");
     setAiResult(job);
     setError("");
@@ -65,8 +55,11 @@ export default function AddApplicationModal() {
 
   function fieldHint(field: ConfidenceField) {
     if (!aiResult) return null;
-    if (field === "status" && !status && aiResult.status === null) {
-      return <p className="mt-1.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">AI 未能确定当前投递状态，请手动选择</p>;
+    if (field === "status" && aiResult.status === null) {
+      return <p className="mt-1.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">AI 未能确定状态，已默认填入“已投递”，可自行修改。</p>;
+    }
+    if (field === "applicationDate" && aiResult.applicationDate === null) {
+      return <p className="mt-1.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">未识别到明确投递日期，已默认填入当天日期，可自行修改。</p>;
     }
     if (aiResult[field] !== null && aiResult.confidence[field] < 0.7) {
       return <p className="mt-1.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">识别置信度较低，请确认</p>;
@@ -110,6 +103,7 @@ export default function AddApplicationModal() {
             date,
             note: note.trim(),
             url: url.trim(),
+            ...(aiResult && jobDescription.trim() ? { jobDescription: jobDescription.trim() } : {}),
           }),
         }
       );
@@ -192,7 +186,7 @@ export default function AddApplicationModal() {
 
             {(step === "upload" || step === "review") && (
               <div hidden={step !== "upload"}>
-                <AiJobScreenshotUpload onRecognized={prefill} onManual={chooseManual} />
+                <AiJobScreenshotUpload active={step === "upload"} onRecognized={prefill} onManual={chooseManual} />
               </div>
             )}
 
@@ -345,6 +339,22 @@ export default function AddApplicationModal() {
                   className="w-full min-w-0 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none transition focus:border-neutral-400 dark:border-neutral-700 dark:bg-[#111113] dark:focus:border-neutral-500 sm:text-sm"
                 />
               </div>
+
+              {step === "review" && (
+                <div>
+                  <label htmlFor="application-jd" className="mb-2 block text-sm font-medium">JD / 职位描述</label>
+                  <textarea
+                    id="application-jd"
+                    value={jobDescription}
+                    onChange={(event) => setJobDescription(event.target.value)}
+                    maxLength={MAX_JOB_DESCRIPTION_LENGTH}
+                    rows={5}
+                    placeholder="截图中可见的岗位职责、任职要求等"
+                    className="max-h-64 w-full min-w-0 resize-y overflow-y-auto rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none transition focus:border-neutral-400 dark:border-neutral-700 dark:bg-[#111113] dark:focus:border-neutral-500 sm:text-sm"
+                  />
+                  <p className="mt-1.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">保存非空 JD 需要 Notion Applications 中存在 JD / 职位描述等富文本字段；不会自动创建字段。</p>
+                </div>
+              )}
 
               <div>
                 <label htmlFor="application-note" className="mb-2 block text-sm font-medium">

@@ -1,3 +1,5 @@
+import { MAX_JOB_DESCRIPTION_LENGTH } from "./job-screenshot";
+
 const APPLICATION_STATUSES = [
   "未投递",
   "已投递",
@@ -65,6 +67,7 @@ export type ApplicationInput = {
   date: string | null;
   note: string;
   url: string | null;
+  jobDescription?: string;
 };
 
 export type ProgressInput = {
@@ -208,6 +211,8 @@ export function parseApplicationInput(
     "note",
     "url",
   ];
+  // Only the new-application path accepts JD. Existing edit requests stay unchanged.
+  if (!requireId) allowedKeys.push("jobDescription");
 
   if (!hasOnlyKeys(body, allowedKeys)) return null;
 
@@ -222,6 +227,8 @@ export function parseApplicationInput(
   const date = optionalDate(body.date);
   const note = text(body.note, 2_000);
   const url = optionalUrl(body.url);
+  const jobDescription = body.jobDescription === undefined ? undefined
+    : typeof body.jobDescription === "string" ? text(body.jobDescription, MAX_JOB_DESCRIPTION_LENGTH) : null;
 
   if (
     company === null ||
@@ -231,6 +238,7 @@ export function parseApplicationInput(
     date === undefined ||
     note === null ||
     url === undefined ||
+    jobDescription === null ||
     (requireId && !id) ||
     (!requireId && body.id !== undefined)
   ) {
@@ -246,6 +254,7 @@ export function parseApplicationInput(
     date,
     note,
     url,
+    ...(jobDescription !== undefined ? { jobDescription } : {}),
   };
 }
 

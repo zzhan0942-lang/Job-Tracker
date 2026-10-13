@@ -5,6 +5,7 @@ import {
   readJson,
 } from "@/lib/api-validation";
 import { requireApiAuth } from "@/lib/api-auth";
+import { findJobDescriptionProperty, jobDescriptionRichText } from "@/lib/application-jd";
 import {
   applicationsDataSourceId,
   findPageInDataSource,
@@ -100,6 +101,15 @@ export async function POST(request: Request) {
   if (!dataSourceId) return unavailableResponse();
 
   try {
+    let jdProperties = {};
+    if (input.jobDescription) {
+      const schema = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+      const field = findJobDescriptionProperty(schema.properties);
+      if (!field) {
+        return Response.json({ success: false, error: "JD 尚未保存：请先在 Notion Applications 新增名为“JD”的文本（rich_text）字段，再重试。表单内容已保留。" }, { status: 409 });
+      }
+      jdProperties = { [field]: { rich_text: jobDescriptionRichText(input.jobDescription) } };
+    }
     const page = await notion.pages.create({
       parent: { data_source_id: dataSourceId },
       properties: {
@@ -121,12 +131,14 @@ export async function POST(request: Request) {
           rich_text: input.note ? [{ text: { content: input.note } }] : [],
         },
         官网链接: { url: input.url },
+        ...jdProperties,
       },
     });
 
     return Response.json({ success: true, id: page.id });
-  } catch (error) {
-    console.error("Failed to create application", error);
+  } catch {
+    // SDK errors may contain the request body, including private JD text.
+    console.error("Failed to create application", { code: "request_failed" });
     return internalErrorResponse();
   }
 }

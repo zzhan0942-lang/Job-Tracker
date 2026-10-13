@@ -127,9 +127,14 @@ Property names are part of the application contract. If a property name or type 
 | `日期` | Date | Application date. |
 | `备注` | Text | Private notes. |
 | `官网链接` | URL | Job or company URL. |
+| `JD` | Text / rich_text (optional) | Visible JD text extracted by AI; existing `职位描述`, `岗位描述`, or `Description` rich-text properties can also be reused. |
 | `进度记录` | Relation | Reciprocal relation to Progress. |
 
 Use these status options: `未投递`, `已投递`, `测评中`, `已测评`, `笔试中`, `已笔试`, `面试中`, `已挂`, and `收到offer`.
+
+Screenshot import supports file selection, drag-and-drop, and Cmd+V / Ctrl+V image paste for PNG, JPEG, or WebP (up to 10MB). Recognition starts only after clicking the button. Unknown status/date remain null in the AI response, while the editable form defaults to “已投递” and the user's local date. JD publication/update dates are never treated as application dates. Only visible JD text is extracted, preserving line breaks; it stays editable. Normal text paste is unaffected.
+
+Saving a nonempty JD checks the data source schema without changing it. If no supported rich-text property exists, saving stops with a message to add `JD` and retains the form; no application is created and JD is not silently discarded. Clearing JD allows saving through the original flow. Manual entry and the Progress API are unchanged.
 
 ### Progress data source
 

@@ -2,6 +2,7 @@
 export const SCREENSHOT_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024;
 export const SCREENSHOT_ERROR = "识别失败，请重试或使用手动填写。";
+export const MAX_JOB_DESCRIPTION_LENGTH = 12_000;
 
 export const JOB_STATUSES = [
   "未投递", "已投递", "测评中", "已测评", "笔试中", "已笔试", "面试中", "已挂", "收到offer",
@@ -17,6 +18,7 @@ export type ParsedJobScreenshot = {
   applicationDate: string | null;
   status: JobStatus | null;
   officialUrl: string | null;
+  jobDescription: string | null;
   confidence: Record<ConfidenceField, number>;
 };
 
@@ -40,7 +42,7 @@ function nullableText(value: unknown, maxLength: number): string | null | undefi
 
 export function parseJobScreenshotResult(value: unknown): ParsedJobScreenshot | null {
   if (!isRecord(value) || !hasExactKeys(value, [
-    "company", "position", "base", "applicationDate", "status", "officialUrl", "confidence",
+    "company", "position", "base", "applicationDate", "status", "officialUrl", "jobDescription", "confidence",
   ])) return null;
 
   const company = nullableText(value.company, 200);
@@ -48,7 +50,8 @@ export function parseJobScreenshotResult(value: unknown): ParsedJobScreenshot | 
   const base = nullableText(value.base, 200);
   const applicationDate = nullableText(value.applicationDate, 10);
   const officialUrl = nullableText(value.officialUrl, 2048);
-  if ([company, position, base, applicationDate, officialUrl].some((field) => field === undefined)) return null;
+  const jobDescription = nullableText(value.jobDescription, MAX_JOB_DESCRIPTION_LENGTH);
+  if ([company, position, base, applicationDate, officialUrl, jobDescription].some((field) => field === undefined)) return null;
 
   if (applicationDate) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(applicationDate)) return null;
@@ -82,6 +85,7 @@ export function parseJobScreenshotResult(value: unknown): ParsedJobScreenshot | 
     applicationDate: applicationDate ?? null,
     status: value.status as JobStatus | null,
     officialUrl: officialUrl ?? null,
+    jobDescription: jobDescription ?? null,
     confidence,
   };
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   JOB_STATUSES,
+  MAX_JOB_DESCRIPTION_LENGTH,
   parseJobScreenshotResult,
   type ConfidenceField,
   type JobStatus,
@@ -100,6 +101,7 @@ export function normalizeJobScreenshotResponse(value: unknown): NormalizationRes
 
   const company = text("company", value.company, 200);
   const position = text("position", value.position, 200);
+  const jobDescription = text("jobDescription", value.jobDescription, MAX_JOB_DESCRIPTION_LENGTH);
   let base: string | null;
   if (Array.isArray(value.base)) {
     if (value.base.every((entry) => typeof entry === "string")) {
@@ -180,7 +182,7 @@ export function normalizeJobScreenshotResponse(value: unknown): NormalizationRes
     }
   }
 
-  const job = parseJobScreenshotResult({ company, position, base, applicationDate, status, officialUrl, confidence });
+  const job = parseJobScreenshotResult({ company, position, base, applicationDate, status, officialUrl, jobDescription, confidence });
   if (!job) issue("response", value, "normalized_schema_mismatch");
   return { job, issues, failure: job ? null : "invalid_fields" };
 }

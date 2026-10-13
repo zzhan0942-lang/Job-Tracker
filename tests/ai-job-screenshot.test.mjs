@@ -31,15 +31,23 @@ function loadSource(filename) {
   return loadedModule.exports;
 }
 
-const { parseJobScreenshotResult, MAX_SCREENSHOT_BYTES, SCREENSHOT_ERROR } = loadSource(resolve(root, "src/lib/job-screenshot.ts"));
+const { parseJobScreenshotResult, MAX_SCREENSHOT_BYTES, SCREENSHOT_ERROR, MAX_JOB_DESCRIPTION_LENGTH } = loadSource(resolve(root, "src/lib/job-screenshot.ts"));
+const { jobScreenshotPrefill, getLocalToday } = loadSource(resolve(root, "src/lib/job-screenshot-prefill.ts"));
+const { clipboardScreenshot, screenshotFileError } = loadSource(resolve(root, "src/lib/screenshot-input.ts"));
+const { findJobDescriptionProperty, jobDescriptionRichText } = loadSource(resolve(root, "src/lib/application-jd.ts"));
 const { normalizeJobScreenshotResponse, parseJobScreenshotResponse } = loadSource(resolve(root, "src/lib/job-screenshot-response.ts"));
 const { POST } = loadSource(resolve(root, "src/app/api/ai/parse-job-screenshot/route.ts"));
 const { matchesImageSignature } = loadSource(resolve(root, "src/lib/screenshot-upload.ts"));
 const { parseApplicationInput } = loadSource(resolve(root, "src/lib/api-validation.ts"));
 const notionCreates = [];
+let schemaProperties = {};
+let schemaReads = 0;
 modules.set(resolve(root, "src/lib/notion-data.ts"), { exports: {
   applicationsDataSourceId: () => "00000000-0000-4000-8000-000000000002",
-  notion: { pages: { create: async (payload) => { notionCreates.push(payload); return { id: "test-created-page" }; } } },
+  notion: {
+    dataSources: { retrieve: async () => { schemaReads += 1; return { properties: schemaProperties }; } },
+    pages: { create: async (payload) => { notionCreates.push(payload); return { id: "test-created-page" }; } },
+  },
 } });
 const { POST: createApplication } = loadSource(resolve(root, "src/app/api/applications/route.ts"));
 const sharp = nativeRequire("sharp");
@@ -51,7 +59,7 @@ const fixtures = {
 };
 const knownJob = {
   company: "测试公司", position: "内容运营", base: "上海", applicationDate: "2026-10-13",
-  status: "已投递", officialUrl: "https://example.com/jobs",
+  status: "已投递", officialUrl: "https://example.com/jobs", jobDescription: null,
   confidence: { company: 0.98, position: 0.95, base: 0.82, applicationDate: 0.54, status: 0.91 },
 };
 const auth = `Basic ${Buffer.from("test-user:test-password").toString("base64")}`;
@@ -82,6 +90,8 @@ test("PNG, JPEG and WebP use the authenticated DeepSeek image request and return
         const payload = JSON.parse(options.body);
         assert.equal(payload.model, "deepseek-flash");
         assert.equal(payload.response_format.type, "json_object");
+        assert.match(payload.messages[0].content, /jobDescription/);
+        assert.match(payload.messages[0].content, /没有 JD 时返回 null/);
         assert.equal(payload.messages[1].content[1].image_url.url, `data:${mime};base64,${bytes.toString("base64")}`);
         return mockModel(knownJob);
       };
@@ -134,7 +144,7 @@ test("normalize nullable/missing fields, whitespace, empty URLs, base arrays and
   assert.equal(parsed.failure, null);
   assert.deepEqual(parsed.job, {
     company: "测试公司", position: "内容运营", base: "北京，上海",
-    applicationDate: null, status: null, officialUrl: null,
+    applicationDate: null, status: null, officialUrl: null, jobDescription: null,
     confidence: { company: 0, position: 0, base: 0, applicationDate: 0, status: 0 },
   });
   for (const input of [["上海"], [], { city: "上海" }, 123, ["上海", {}]]) {
@@ -302,7 +312,7 @@ test("missing key, timeout, non-JSON, invalid fields, no job and provider errors
       [async () => mockModel({ ...knownJob, company: null, position: null }), 502],
       [async () => mockModel(knownJob, { finish_reason: "length" }), 502],
       [async () => new Response("private provider failure", { status: 401 }), 502],
-      [async () => new Response("x".repeat(65 * 1024)), 502],
+      [async () => new Response("x".repeat(257 * 1024)), 502],
     ]) {
       globalThis.fetch = provider;
       response = await POST(request());
@@ -319,4 +329,113 @@ test("missing key, timeout, non-JSON, invalid fields, no job and provider errors
     console.warn = originalWarn;
     delete process.env.DEEPSEEK_API_KEY;
   }
+});
+
+test("form defaults use local today and submitted status without changing the factual AI response", () => {
+  const today = new Date(2026, 9, 13, 0, 5);
+  const unknown = { ...knownJob, status: null, applicationDate: null };
+  assert.equal(getLocalToday(today), "2026-10-13");
+  assert.equal(jobScreenshotPrefill(unknown, today).status, "已投递");
+  assert.equal(jobScreenshotPrefill(unknown, today).date, "2026-10-13");
+  assert.equal(unknown.status, null);
+  assert.equal(unknown.applicationDate, null);
+  for (const status of ["未投递", "测评中", "笔试中", "面试中", "已挂", "收到offer"]) {
+    assert.equal(jobScreenshotPrefill({ ...knownJob, status }, today).status, status);
+  }
+  const explicit = normalizeJobScreenshotResponse({ ...knownJob, applicationDate: "2026-09-10", applicationDateEvidence: "申请日期：2026-09-10" }).job;
+  assert.equal(jobScreenshotPrefill(explicit, today).date, "2026-09-10");
+  const publication = normalizeJobScreenshotResponse({ ...knownJob, applicationDate: "2026-09-10 发布" }).job;
+  assert.equal(publication.applicationDate, null);
+  assert.equal(jobScreenshotPrefill(publication, today).date, "2026-10-13");
+});
+
+test("JD preserves visible multiline content, remains nullable, and does not require confidence", () => {
+  const jd = "工作职责\n1. 维护内容\n  - 整理反馈\n任职要求\n1. 熟悉协作工具";
+  const job = normalizeJobScreenshotResponse({ ...knownJob, jobDescription: `  ${jd}\n`, confidence: undefined }).job;
+  assert.equal(job.jobDescription, jd);
+  assert.equal(jobScreenshotPrefill(job).jobDescription, jd);
+  assert.deepEqual(Object.keys(job.confidence), ["company", "position", "base", "applicationDate", "status"]);
+  for (const value of [null, undefined, "", "  ", {}, ["JD"], "x".repeat(MAX_JOB_DESCRIPTION_LENGTH + 1)]) {
+    const result = normalizeJobScreenshotResponse({ ...knownJob, jobDescription: value });
+    assert.equal(result.failure, null);
+    assert.equal(result.job.jobDescription, null);
+    assert.equal(jobScreenshotPrefill(result.job).jobDescription, "");
+  }
+  assert.equal(parseJobScreenshotResult({ ...knownJob, jobDescription: "x".repeat(MAX_JOB_DESCRIPTION_LENGTH + 1) }), null);
+});
+
+test("the AI route returns visible JD even when optional confidence is absent", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const jd = "岗位职责\n1. 明确可见的职责\n任职要求\n1. 明确可见的要求";
+  const logs = [];
+  console.warn = (...args) => logs.push(args);
+  try {
+    process.env.DEEPSEEK_API_KEY = "fake-test-key";
+    globalThis.fetch = async () => mockModel({ ...knownJob, jobDescription: jd, confidence: undefined });
+    const response = await POST(request());
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).job.jobDescription, jd);
+    assert.ok(!JSON.stringify(logs).includes("明确可见"));
+  } finally { globalThis.fetch = originalFetch; console.warn = originalWarn; }
+});
+
+function clipboard(files, text = "", items = true) {
+  return {
+    files,
+    items: items ? files.map((file) => ({ kind: "file", type: file.type, getAsFile: () => file })) : [],
+    getData: (type) => type === "text/plain" ? text : "",
+  };
+}
+
+test("clipboard PNG/JPEG/WebP and file-list fallback share the upload validation; text paste is untouched", () => {
+  for (const [type, bytes] of Object.entries(fixtures)) {
+    const file = new File([bytes], "pasted", { type });
+    assert.equal(clipboardScreenshot(clipboard([file]), false), file);
+    assert.equal(clipboardScreenshot(clipboard([file], "", false), false), file);
+    assert.equal(clipboardScreenshot(clipboard([file]), true), file);
+    assert.equal(clipboardScreenshot(clipboard([file], "normal text"), true), null);
+    assert.equal(screenshotFileError(file), null);
+  }
+  assert.equal(clipboardScreenshot(clipboard([], "normal text"), false), null);
+  assert.equal(clipboardScreenshot(clipboard([new File(["text"], "text.txt", { type: "text/plain" })]), false), null);
+  const oversized = new File([new Uint8Array(MAX_SCREENSHOT_BYTES + 1)], "large.png", { type: "image/png" });
+  assert.equal(clipboardScreenshot(clipboard([oversized]), false), oversized);
+  assert.match(screenshotFileError(oversized), /10MB/);
+  assert.match(screenshotFileError({ type: "image/gif", size: 50 }), /PNG/);
+  assert.match(screenshotFileError({ type: "image/png", size: 0 }), /10MB/);
+  assert.equal(screenshotFileError({ type: "image/png", size: MAX_SCREENSHOT_BYTES }), null);
+});
+
+test("optional JD reuses an existing rich-text property; a missing schema stops the write without losing JD", async () => {
+  const input = { company: "测试公司", role: "测试岗位", base: "", status: "已投递", date: "2026-10-13", note: "独立备注", url: "" };
+  const submit = (data) => createApplication(new Request("http://localhost/api/applications", {
+    method: "POST", headers: { Authorization: auth, "Content-Type": "application/json" }, body: JSON.stringify(data),
+  }));
+  const beforeReads = schemaReads;
+  assert.equal((await submit(input)).status, 200);
+  assert.equal(schemaReads, beforeReads, "manual flow never needs a schema lookup");
+  const jd = `${"内容\n".repeat(800)}😀结尾`;
+  for (const name of ["JD", "职位描述", "岗位描述", "Description"]) {
+    schemaProperties = { [name]: { type: "rich_text" } };
+    assert.equal((await submit({ ...input, jobDescription: jd })).status, 200);
+    const properties = notionCreates.at(-1).properties;
+    assert.equal(properties[name].rich_text.map((part) => part.text.content).join(""), jd);
+    assert.ok(properties[name].rich_text.every((part) => part.text.content.length <= 2000));
+    assert.equal(properties["备注"].rich_text[0].text.content, input.note);
+  }
+  const beforeCreates = notionCreates.length;
+  for (const properties of [{}, { JD: { type: "url" } }]) {
+    schemaProperties = properties;
+    const response = await submit({ ...input, jobDescription: jd });
+    assert.equal(response.status, 409);
+    assert.match((await response.json()).error, /新增.*JD/);
+  }
+  assert.equal(notionCreates.length, beforeCreates);
+  assert.equal(findJobDescriptionProperty({ JD: { type: "url" }, 职位描述: { type: "rich_text" } }), "职位描述");
+  const unicode = `${"x".repeat(1999)}😀`;
+  assert.deepEqual(jobDescriptionRichText(unicode).map((item) => item.text.content), ["x".repeat(1999), "😀"]);
+  assert.equal(parseApplicationInput({ ...input, jobDescription: {} }, false), null);
+  assert.equal(parseApplicationInput({ ...input, jobDescription: "x".repeat(MAX_JOB_DESCRIPTION_LENGTH + 1) }, false), null);
+  assert.equal(parseApplicationInput({ ...input, id: "00000000-0000-4000-8000-000000000001", jobDescription: "JD" }, true), null);
 });

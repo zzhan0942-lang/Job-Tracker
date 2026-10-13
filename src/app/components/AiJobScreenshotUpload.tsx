@@ -1,25 +1,27 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  isScreenshotMimeType,
-  MAX_SCREENSHOT_BYTES,
   parseJobScreenshotResult,
   SCREENSHOT_ERROR,
   type ParsedJobScreenshot,
 } from "@/lib/job-screenshot";
+import { clipboardScreenshot, screenshotFileError } from "@/lib/screenshot-input";
 
 type Props = {
+  active: boolean;
   onRecognized: (job: ParsedJobScreenshot) => void;
   onManual: () => void;
 };
 
-export default function AiJobScreenshotUpload({ onRecognized, onManual }: Props) {
+export default function AiJobScreenshotUpload({ active, onRecognized, onManual }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [recognizing, setRecognizing] = useState(false);
   const [error, setError] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
   const requestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -30,22 +32,36 @@ export default function AiJobScreenshotUpload({ onRecognized, onManual }: Props)
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
-  function selectFile(selected: File | undefined) {
+  const selectFile = useCallback((selected: File | undefined) => {
+    if (requestRef.current || !selected) return;
     setError("");
     setFile(null);
     setPreviewUrl(null);
-    if (!selected) return;
-    if (!isScreenshotMimeType(selected.type)) {
-      setError("请上传 PNG、JPEG 或 WebP 图片。");
-      return;
-    }
-    if (selected.size === 0 || selected.size > MAX_SCREENSHOT_BYTES) {
-      setError("请上传不超过 10MB 的有效图片。");
+    const validationError = screenshotFileError(selected);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setFile(selected);
     setPreviewUrl(URL.createObjectURL(selected));
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    function paste(event: ClipboardEvent) {
+      if (requestRef.current || !event.clipboardData || event.defaultPrevented) return;
+      const target = event.target;
+      const editingText = target instanceof HTMLElement && (
+        target.matches("input, textarea") || target.isContentEditable
+      );
+      const pasted = clipboardScreenshot(event.clipboardData, editingText);
+      if (!pasted) return;
+      event.preventDefault();
+      selectFile(pasted);
+    }
+    document.addEventListener("paste", paste);
+    return () => document.removeEventListener("paste", paste);
+  }, [active, selectFile]);
 
   async function recognize() {
     if (requestRef.current) return;
@@ -86,9 +102,35 @@ export default function AiJobScreenshotUpload({ onRecognized, onManual }: Props)
         </p>
       </div>
 
-      <label className={`flex min-w-0 flex-col items-center gap-2 rounded-2xl border border-dashed border-neutral-300 bg-[#f7f7f5] px-4 py-6 text-center dark:border-neutral-700 dark:bg-[#222224] ${recognizing ? "opacity-60" : "cursor-pointer hover:border-neutral-500"}`}>
-        <span className="text-sm font-medium">{file ? "更换截图" : "点击上传截图"}</span>
+      <label
+        className={`flex min-w-0 flex-col items-center gap-2 rounded-2xl border border-dashed bg-[#f7f7f5] px-4 py-6 text-center dark:bg-[#222224] ${dragging ? "border-neutral-600 ring-2 ring-neutral-300 dark:border-neutral-300 dark:ring-neutral-600" : "border-neutral-300 dark:border-neutral-700"} ${recognizing ? "opacity-60" : "cursor-pointer hover:border-neutral-500"}`}
+        onDragEnter={(event) => {
+          if (recognizing || !event.dataTransfer.types.includes("Files")) return;
+          event.preventDefault();
+          dragDepth.current += 1;
+          setDragging(true);
+        }}
+        onDragOver={(event) => {
+          if (!event.dataTransfer.types.includes("Files")) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = recognizing ? "none" : "copy";
+        }}
+        onDragLeave={(event) => {
+          event.preventDefault();
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (!dragDepth.current) setDragging(false);
+        }}
+        onDrop={(event) => {
+          if (!event.dataTransfer.types.includes("Files")) return;
+          event.preventDefault();
+          dragDepth.current = 0;
+          setDragging(false);
+          if (!recognizing) selectFile(event.dataTransfer.files[0]);
+        }}
+      >
+        <span className="text-sm font-medium">{file ? "更换截图" : "拖拽、点击上传，或直接粘贴截图"}</span>
         <span className="text-xs text-neutral-500">PNG / JPEG / WebP · 单张不超过 10MB</span>
+        <span className="text-xs text-neutral-400">Mac：⌘V · Windows：Ctrl+V</span>
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"
